@@ -7,13 +7,21 @@ import (
 	"os"
 	"path/filepath"
 
+	"go.uber.org/zap"
+
+	"github.com/davecgh/go-spew/spew"
 	"github.com/wearefair/k8-cross-cluster-controller/k8"
 	"github.com/wearefair/service-kit-go/errors"
+	"github.com/wearefair/service-kit-go/logging"
 	yaml "gopkg.in/yaml.v2"
 )
 
 const (
 	EnvConfigPath = "CONFIG_PATH"
+)
+
+var (
+	logger = logging.Logger()
 )
 
 type Controller struct {
@@ -29,9 +37,9 @@ func NewController(clusterName, host, token string) (*Controller, error) {
 		return nil, err
 	}
 	remoteConf := &k8.ClusterConfig{
-		ClusterName: clusterName,
-		Host:        host,
-		Token:       token,
+		Cluster: clusterName,
+		Host:    host,
+		Token:   token,
 	}
 	remote, err := k8.NewClient(remoteConf, requestChan)
 	if err != nil {
@@ -86,6 +94,7 @@ func config(path string) (*k8.ClusterConfig, error) {
 	conf := &k8.ClusterConfig{}
 	ctx := context.Background()
 	confPath, err := pathHelper(path)
+	logger.Info("Config path", zap.String("path", confPath))
 	if err != nil {
 		return nil, err
 	}
@@ -96,6 +105,7 @@ func config(path string) (*k8.ClusterConfig, error) {
 	if err := yaml.Unmarshal(confFile, conf); err != nil {
 		return nil, errors.Error(ctx, err)
 	}
+	spew.Dump(conf)
 	return conf, nil
 }
 

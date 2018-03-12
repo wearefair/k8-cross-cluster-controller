@@ -47,7 +47,6 @@ type ClusterConfig struct {
 // TODO: Split this out into ingress cluster and maybe egress cluster?
 // Or cross-cluster client and internal client
 type Client struct {
-	K8Config    *rest.Config
 	Cluster     string
 	K8Client    kubernetes.Interface
 	RequestChan chan *ServiceRequest
@@ -75,10 +74,11 @@ func NewClient(clusterConf *ClusterConfig, requestChan chan *ServiceRequest) (*C
 		return nil, errors.Error(ctx, err)
 	}
 	k8 := &Client{
-		K8Config:    conf,
-		Cluster:     clusterConf.Cluster,
 		K8Client:    cli,
 		RequestChan: requestChan,
+	}
+	if clusterConf != nil {
+		k8.Cluster = clusterConf.Cluster
 	}
 	return k8, nil
 }
@@ -179,11 +179,7 @@ func (k *Client) createServiceRequest(endpoint *v1.Endpoints, requestType Servic
 }
 
 func WatchServices(k *Client) error {
-	// This needs to be a RESTClient
-	restClient, err := rest.RESTClientFor(k.K8Config)
-	if err != nil {
-		return errors.Error(context.Background(), err)
-	}
+	restClient := k.K8Client.CoreV1().RESTClient()
 	watchlist := cache.NewListWatchFromClient(restClient, k8Services, defaultNamespace, nil)
 
 	uninitializedWatchList := &cache.ListWatch{

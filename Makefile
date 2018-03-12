@@ -4,6 +4,6 @@ VERSION := $(shell git rev-parse --short HEAD)
 build:
 	docker build -t k8-cross-cluster-controller:$(VERSION) .
 
-release:
+release: build
 	docker tag k8-cross-cluster-controller:$(VERSION) $(REPO):$(VERSION) && \
 		docker push $(REPO):$(VERSION)

@@ -12,26 +12,23 @@ spec:
     spec:
       containers:
         - name: cross-cluster-controller
-          image: 889883130442.dkr.ecr.us-west-2.amazonaws.com/k8-cross-cluster-controller:c01fdf9
+          imagePullPolicy: Always
+          image: 889883130442.dkr.ecr.us-west-2.amazonaws.com/k8-cross-cluster-controller:0acd8ae
           volumeMounts:
             - name: secrets
-              mountPath: /etc/k8-cross-cluster-controller/secrets.yaml
-              subPath: secrets.yaml
+              mountPath: /etc/k8-cross-cluster-controller
               readOnly: true
           env:
             - name: FAIR_ENV
-              valueFrom:
-                configMapKeyRef:
-                  name: cluster
-                  key: environment
+              value: staging
             - name: TRACING_APP_NAME
               value: cross-cluster-controller
             - name: CONFIG_PATH
-              value: /etc/k8-cross-cluster-controller/secrets.yaml
+              value: /etc/k8-cross-cluster-controller/file.yaml
       volumes:
         - name: secrets
           secret:
             secretName: k8-cross-cluster-controller
             items:
-              - key: secrets.yaml
-                path: secrets.yaml
+              - key: file.yaml
+                path: file.yaml
