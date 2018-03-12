@@ -39,16 +39,16 @@ type ServiceRequest struct {
 // ClusterConfig encapsulates a cluster
 // TODO turn this into a file
 type ClusterConfig struct {
-	ClusterName string
-	Host        string
-	Token       string
+	Cluster string `yaml:"cluster"`
+	Host    string `yaml:"host"`
+	Token   string `yaml:"token"`
 }
 
 // TODO: Split this out into ingress cluster and maybe egress cluster?
 // Or cross-cluster client and internal client
 type Client struct {
 	K8Config    *rest.Config
-	ClusterName string
+	Cluster     string
 	K8Client    kubernetes.Interface
 	RequestChan chan *ServiceRequest
 }
@@ -76,7 +76,7 @@ func NewClient(clusterConf *ClusterConfig, requestChan chan *ServiceRequest) (*C
 	}
 	k8 := &Client{
 		K8Config:    conf,
-		ClusterName: clusterConf.ClusterName,
+		Cluster:     clusterConf.Cluster,
 		K8Client:    cli,
 		RequestChan: requestChan,
 	}

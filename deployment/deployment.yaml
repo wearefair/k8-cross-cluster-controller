@@ -1,0 +1,37 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: cross-cluster-controller
+  namespace: fair-system
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: cross-cluster-controller
+    spec:
+      containers:
+        - name: cross-cluster-controller
+          image: 889883130442.dkr.ecr.us-west-2.amazonaws.com/k8-cross-cluster-controller:c01fdf9
+          volumeMounts:
+            - name: secrets
+              mountPath: /etc/k8-cross-cluster-controller/secrets.yaml
+              subPath: secrets.yaml
+              readOnly: true
+          env:
+            - name: FAIR_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: cluster
+                  key: environment
+            - name: TRACING_APP_NAME
+              value: cross-cluster-controller
+            - name: CONFIG_PATH
+              value: /etc/k8-cross-cluster-controller/secrets.yaml
+      volumes:
+        - name: secrets
+          secret:
+            secretName: k8-cross-cluster-controller
+            items:
+              - key: secrets.yaml
+                path: secrets.yaml
