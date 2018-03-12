@@ -14,6 +14,7 @@ var cfgFile string
 var RootCmd = &cobra.Command{
 	Use:   "k8-cross-cluster-controller",
 	Short: "Cross cluster controller",
+	Run:   runController,
 }
 
 // Execute adds all child commands to the root command sets flags appropriately.

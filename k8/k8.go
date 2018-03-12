@@ -2,6 +2,10 @@ package k8
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/wearefair/service-kit-go/errors"
@@ -28,19 +32,22 @@ const (
 type ServiceRequestType int
 
 type ServiceRequest struct {
-	Type     int
+	Type     ServiceRequestType
 	Endpoint *v1.Endpoints
 }
 
 // ClusterConfig encapsulates a cluster
+// TODO turn this into a file
 type ClusterConfig struct {
 	ClusterName string
 	Host        string
 	Token       string
 }
 
-// Client
+// TODO: Split this out into ingress cluster and maybe egress cluster?
+// Or cross-cluster client and internal client
 type Client struct {
+	K8Config    *rest.Config
 	ClusterName string
 	K8Client    kubernetes.Interface
 	RequestChan chan *ServiceRequest
@@ -68,6 +75,7 @@ func NewClient(clusterConf *ClusterConfig, requestChan chan *ServiceRequest) (*C
 		return nil, errors.Error(ctx, err)
 	}
 	k8 := &Client{
+		K8Config:    conf,
 		ClusterName: clusterConf.ClusterName,
 		K8Client:    cli,
 		RequestChan: requestChan,
@@ -105,38 +113,78 @@ func (k *Client) WatchDeleteService(obj interface{}) {
 	k.RequestChan <- req
 }
 
+// CreateService creates an endpoints object and a corresponding service on the cross cluster
 func (k *Client) CreateService(request *ServiceRequest) error {
+	endpoints, err := k.K8Client.CoreV1().Endpoints(defaultNamespace).Create(request.Endpoint)
+	if err != nil {
+		return errors.Error(context.Background(), err)
+	}
+	if _, err := k.createServiceFromEndpoints(endpoints); err != nil {
+		return err
+	}
 	return nil
 }
 
+// DeleteService takes a ServiceRequest and deletes both the service and the endpoint object
 func (k *Client) DeleteService(request *ServiceRequest) error {
+	ctx := context.Background()
+	err := k.K8Client.CoreV1().Endpoints(defaultNamespace).Delete(request.Endpoint.ObjectMeta.Name, &metav1.DeleteOptions{})
+	if err != nil {
+		return errors.Error(ctx, err)
+	}
+	err = k.K8Client.CoreV1().Services(defaultNamespace).Delete(request.Endpoint.ObjectMeta.Name, &metav1.DeleteOptions{})
+	if err != nil {
+		return errors.Error(ctx, err)
+	}
 	return nil
 }
 
 func (k *Client) UpdateService(request *ServiceRequest) error {
+	ctx := context.Background()
+	_, err := k.K8Client.CoreV1().Endpoints(defaultNamespace).Update(request.Endpoint)
+	if err != nil {
+		return errors.Error(ctx, err)
+	}
+	// I don't think the service needs to be updated if the endpoints already are?
 	return nil
 }
 
 func (k *Client) getEndpointsFromService(svc *v1.Service) (*v1.Endpoints, error) {
-	ctx := context.Background()
 	name := svc.ObjectMeta.Name
 	endpoints, err := k.K8Client.CoreV1().Endpoints(defaultNamespace).Get(name, metav1.GetOptions{})
 	if err != nil {
-		return nil, ferrors.Error(ctx, err)
+		return nil, errors.Error(context.Background(), err)
 	}
 	return endpoints, nil
 }
 
+func (k *Client) createServiceFromEndpoints(endpoints *v1.Endpoints) (*v1.Service, error) {
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: endpoints.ObjectMeta.Name,
+		},
+	}
+	svc, err := k.K8Client.CoreV1().Services(defaultNamespace).Create(svc)
+	if err != nil {
+		return nil, errors.Error(context.Background(), err)
+	}
+	return svc, nil
+}
+
 func (k *Client) createServiceRequest(endpoint *v1.Endpoints, requestType ServiceRequestType) *ServiceRequest {
 	return &ServiceRequest{
-		ClusterName: k.ClusterName,
-		Type:        requestType,
-		Endpoint:    endpoint,
+		Type:     requestType,
+		Endpoint: endpoint,
 	}
 }
 
-func WatchServices(k *Client) {
-	watchlist := cache.NewListWatchFromClient(k.K8Client, k8Services, defaultNamespace, nil)
+func WatchServices(k *Client) error {
+	// This needs to be a RESTClient
+	restClient, err := rest.RESTClientFor(k.K8Config)
+	if err != nil {
+		return errors.Error(context.Background(), err)
+	}
+	watchlist := cache.NewListWatchFromClient(restClient, k8Services, defaultNamespace, nil)
 
 	uninitializedWatchList := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
@@ -158,4 +206,14 @@ func WatchServices(k *Client) {
 			DeleteFunc: k.WatchDeleteService,
 		},
 	)
+	stop := make(chan struct{})
+	go informer.Run(stop)
+
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	<-signalChan
+
+	fmt.Println("Shutting down")
+	close(stop)
+	return nil
 }
