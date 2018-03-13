@@ -2,37 +2,12 @@ package k8
 
 import (
 	"context"
-	"time"
 
 	"github.com/wearefair/service-kit-go/errors"
-	"github.com/wearefair/service-kit-go/logging"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
-
-const (
-	AddService ServiceRequestType = iota
-	UpdateService
-	DeleteService
-
-	crossClusterServiceLabel = "fair.com/cross-cluster=true"
-	defaultNamespace         = "default"
-	defaultResyncPeriod      = 30 * time.Second
-	k8Services               = "services"
-)
-
-var (
-	logger = logging.Logger()
-)
-
-type ServiceRequestType int
-
-type ServiceRequest struct {
-	Type     ServiceRequestType
-	Endpoint *v1.Endpoints
-}
 
 // ClusterConfig encapsulates a cluster
 // TODO turn this into a file
@@ -51,34 +26,11 @@ type InternalClient struct {
 }
 
 // NewClient returns an instance of Client
-func NewInternalClient(clusterConf *ClusterConfig, requestChan chan *ServiceRequest) (*InternalClient, error) {
-	var conf *rest.Config
-	var err error
-	ctx := context.Background()
-	if clusterConf == nil {
-		// If clusterConf is nil, we're initializing a client within the cluster
-		conf, err = rest.InClusterConfig()
-	} else {
-		conf = &rest.Config{
-			Host:        clusterConf.Host,
-			BearerToken: clusterConf.Token,
-		}
-	}
-	if err != nil {
-		return nil, errors.Error(ctx, err)
-	}
-	cli, err := kubernetes.NewForConfig(conf)
-	if err != nil {
-		return nil, errors.Error(ctx, err)
-	}
-	k8 := &InternalClient{
-		K8Client:    cli,
+func NewInternalClient(clientset kubernetes.Interface, requestChan chan *ServiceRequest) *InternalClient {
+	return &InternalClient{
+		K8Client:    clientset,
 		RequestChan: requestChan,
 	}
-	if clusterConf != nil {
-		k8.Cluster = clusterConf.Cluster
-	}
-	return k8, nil
 }
 
 // CreateService creates an endpoints object and a corresponding service on the cross cluster

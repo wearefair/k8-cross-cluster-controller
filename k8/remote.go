@@ -3,15 +3,11 @@ package k8
 import (
 	"context"
 
-	"cloud.google.com/go/logging"
 	"github.com/wearefair/service-kit-go/errors"
 	"go.uber.org/zap"
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-)
-
-var (
-	logger = logging.Logger()
 )
 
 type RemoteClient struct {

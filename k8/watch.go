@@ -6,14 +6,16 @@ import (
 	"syscall"
 
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 )
 
-func WatchServices(k *Client) error {
+func WatchServices(k *RemoteClient) error {
 	restClient := k.K8Client.CoreV1().RESTClient()
+	// There's another list watch that allows us to filter by the labels
 	watchlist := cache.NewListWatchFromClient(restClient, k8Services, metav1.NamespaceAll, fields.Everything())
 
 	uninitializedWatchList := &cache.ListWatch{
@@ -31,9 +33,9 @@ func WatchServices(k *Client) error {
 
 	_, informer := cache.NewInformer(uninitializedWatchList, &v1.Service{}, defaultResyncPeriod,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    k.WatchAddService,
-			UpdateFunc: k.WatchUpdateService,
-			DeleteFunc: k.WatchDeleteService,
+			AddFunc:    k.AddService,
+			UpdateFunc: k.UpdateService,
+			DeleteFunc: k.DeleteService,
 		},
 	)
 	stop := make(chan struct{})

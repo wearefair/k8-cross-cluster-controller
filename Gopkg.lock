@@ -115,6 +115,18 @@
   revision = "23c074d0eceb2b8a5bfdbb271ab780cde70f05a8"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/howeyc/gopass"
+  packages = ["."]
+  revision = "bf9dde6d0d2c004a008c27aaee91170c786f6db8"
+
+[[projects]]
+  name = "github.com/imdario/mergo"
+  packages = ["."]
+  revision = "163f41321a19dd09362d4c63cc2489db2015f1f4"
+  version = "0.3.2"
+
+[[projects]]
   name = "github.com/inconshreveable/mousetrap"
   packages = ["."]
   revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
@@ -255,6 +267,12 @@
 
 [[projects]]
   branch = "master"
+  name = "golang.org/x/crypto"
+  packages = ["ssh/terminal"]
+  revision = "182114d582623c1caa54f73de9c7224e23a48487"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/net"
   packages = [
     "context",
@@ -268,7 +286,10 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
-  packages = ["unix"]
+  packages = [
+    "unix",
+    "windows"
+  ]
   revision = "7dca6fe1f43775aa6d1334576870ff63f978f539"
 
 [[projects]]
@@ -421,8 +442,12 @@
     "pkg/version",
     "rest",
     "rest/watch",
+    "tools/auth",
     "tools/cache",
+    "tools/clientcmd",
     "tools/clientcmd/api",
+    "tools/clientcmd/api/latest",
+    "tools/clientcmd/api/v1",
     "tools/metrics",
     "tools/pager",
     "tools/reference",
@@ -430,6 +455,7 @@
     "util/buffer",
     "util/cert",
     "util/flowcontrol",
+    "util/homedir",
     "util/integer"
   ]
   revision = "78700dec6369ba22221b72770783300f143df150"
@@ -438,6 +464,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "47c116fce15e8108244a398910e8d3530a3fd410c2ea9c0272fa5ab301899a8a"
+  inputs-digest = "08fd29b8c27d053f183d152585c04f31f7d328ed721ade92e0e0d443fc786e6e"
   solver-name = "gps-cdcl"
   solver-version = 1

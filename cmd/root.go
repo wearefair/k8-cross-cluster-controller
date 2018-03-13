@@ -8,7 +8,14 @@ import (
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
+const (
+	EnvKubeConfigPath = "KUBECONFIG_PATH"
+)
+
+var (
+	cfgFile    string
+	kubeconfig string
+)
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
@@ -29,14 +36,12 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports Persistent Flags, which, if defined here,
-	// will be global for your application.
-
 	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.k8-cross-cluster-controller.yaml)")
+	RootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "k", os.Getenv(EnvKubeConfigPath), "Path to Kubeconfig")
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	RootCmd.MarkFlagRequired("kubeconfig")
 }
 
 // initConfig reads in config file and ENV variables if set.
