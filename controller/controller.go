@@ -3,6 +3,9 @@ package controller
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -42,24 +45,29 @@ func Coordinate(internalConf, remoteConf *rest.Config) error {
 	}
 
 	remote := k8.NewRemoteClient(remoteClient, remoteServiceChan, remoteEndpointsChan)
-
-	coordinateInternal(internal)
-	coordinateRemote(remote)
+	stopChan := make(chan struct{})
+	coordinateInternal(internal, stopChan)
+	coordinateRemote(remote, stopChan)
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	<-signalChan
+	logger.Info("Shutting down watchers")
+	close(stopChan)
 	return nil
 }
 
-func coordinateRemote(remote *k8.RemoteClient) {
+func coordinateRemote(remote *k8.RemoteClient, stopChan chan struct{}) {
 	logger.Info("Watching remote endpoints")
 	filter := func(options *metav1.ListOptions) {
 		options.LabelSelector = fmt.Sprintf("%s=%s", k8.CrossClusterServiceLabelKey, k8.CrossClusterServiceLabelValue)
 	}
-	k8.WatchEndpoints(remote, filter)
-	k8.WatchServices(remote, filter)
+	k8.WatchEndpoints(remote, filter, stopChan)
+	k8.WatchServices(remote, filter, stopChan)
 }
 
-func coordinateInternal(internal *k8.InternalClient) {
+func coordinateInternal(internal *k8.InternalClient, stopChan chan struct{}) {
 	filter := func(options *metav1.ListOptions) {}
-	k8.WatchServices(internal, filter)
+	k8.WatchServices(internal, filter, stopChan)
 	go func() {
 		internal.HandleRemoteServiceEvents()
 	}()

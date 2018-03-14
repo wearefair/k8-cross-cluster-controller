@@ -56,8 +56,9 @@ func (k *InternalClient) sendServiceRequest(svc *v1.Service, requestType Request
 	k.InternalServiceChan <- req
 }
 
+// TODO: Must strip out cluster IP
 func (k *InternalClient) HandleRemoteAddService(request *ServiceRequest) error {
-	_, err := k.K8Client.CoreV1().Services(defaultNamespace).Create(request.Service)
+	_, err := k.K8Client.CoreV1().Services(defaultNamespace).Create(request.Service.DeepCopy())
 	if err != nil {
 		return errors.Error(context.Background(), err)
 	}
@@ -73,15 +74,17 @@ func (k *InternalClient) HandleRemoteDeleteService(request *ServiceRequest) erro
 }
 
 func (k *InternalClient) HandleRemoteUpdateService(request *ServiceRequest) error {
-	_, err := k.K8Client.CoreV1().Services(defaultNamespace).Update(request.Service)
+	// I have no idea if this will work right... might have to do some sort of weird fetch and patch
+	_, err := k.K8Client.CoreV1().Services(defaultNamespace).Update(request.Service.DeepCopy())
 	if err != nil {
 		return errors.Error(context.Background(), err)
 	}
 	return nil
 }
 
+// TODO: Must strip out resource version
 func (k *InternalClient) HandleRemoteAddEndpoints(request *EndpointsRequest) error {
-	_, err := k.K8Client.CoreV1().Endpoints(defaultNamespace).Create(request.Endpoints)
+	_, err := k.K8Client.CoreV1().Endpoints(defaultNamespace).Create(request.Endpoints.DeepCopy())
 	if err != nil {
 		return errors.Error(context.Background(), err)
 	}
@@ -89,7 +92,7 @@ func (k *InternalClient) HandleRemoteAddEndpoints(request *EndpointsRequest) err
 }
 
 func (k *InternalClient) HandleRemoteUpdateEndpoints(request *EndpointsRequest) error {
-	_, err := k.K8Client.CoreV1().Endpoints(defaultNamespace).Update(request.Endpoints)
+	_, err := k.K8Client.CoreV1().Endpoints(defaultNamespace).Update(request.Endpoints.DeepCopy())
 	if err != nil {
 		return errors.Error(context.Background(), err)
 	}

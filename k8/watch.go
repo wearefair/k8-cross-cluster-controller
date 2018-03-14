@@ -1,10 +1,6 @@
 package k8
 
 import (
-	"os"
-	"os/signal"
-	"syscall"
-
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -25,7 +21,7 @@ type EndpointsWatcher interface {
 	WatchDeleteEndpoints(interface{})
 }
 
-func WatchEndpoints(w EndpointsWatcher, filters func(options *metav1.ListOptions)) {
+func WatchEndpoints(w EndpointsWatcher, filters func(options *metav1.ListOptions), stopChan chan struct{}) {
 	restClient := w.Client().CoreV1().RESTClient()
 
 	watchlist := cache.NewFilteredListWatchFromClient(restClient, k8Endpoints, metav1.NamespaceAll, filters)
@@ -36,19 +32,11 @@ func WatchEndpoints(w EndpointsWatcher, filters func(options *metav1.ListOptions
 			DeleteFunc: w.WatchDeleteEndpoints,
 		},
 	)
-	stop := make(chan struct{})
-	go informer.Run(stop)
-
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
-	<-signalChan
-
-	logger.Info("Shutting down watcher")
-	close(stop)
+	go informer.Run(stopChan)
 }
 
 // Need to have a channel just for sending over events for services
-func WatchServices(w ServiceWatcher, filters func(options *metav1.ListOptions)) {
+func WatchServices(w ServiceWatcher, filters func(options *metav1.ListOptions), stopChan chan struct{}) {
 	restClient := w.Client().CoreV1().RESTClient()
 	watchlist := cache.NewFilteredListWatchFromClient(restClient, k8Services, metav1.NamespaceAll, filters)
 	_, informer := cache.NewInformer(watchlist, &v1.Service{}, defaultResyncPeriod,
@@ -58,13 +46,5 @@ func WatchServices(w ServiceWatcher, filters func(options *metav1.ListOptions)) 
 			DeleteFunc: w.WatchDeleteService,
 		},
 	)
-	stop := make(chan struct{})
-	go informer.Run(stop)
-
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
-	<-signalChan
-
-	logger.Info("Shutting down watcher")
-	close(stop)
+	go informer.Run(stopChan)
 }
