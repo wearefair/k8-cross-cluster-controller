@@ -2,82 +2,108 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
-	"errors"
-
-	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"github.com/wearefair/k8-cross-cluster-controller/k8"
+	"github.com/wearefair/k8-cross-cluster-controller/utils"
 	ferrors "github.com/wearefair/service-kit-go/errors"
 	"github.com/wearefair/service-kit-go/logging"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
+)
+
+const (
+	devModeInternalContext = "prototype-general"
+	devModeRemoteContext   = "prototype-secure"
 )
 
 var (
 	logger = logging.Logger()
 )
 
-func Coordinate(remoteConfPath string) error {
+func Coordinate(internalConf, remoteConf *rest.Config) error {
 	ctx := context.Background()
-	requestChan := make(chan *k8.ServiceRequest)
-
-	logger.Info("Setting up internal client")
-	internalConf, err := rest.InClusterConfig()
-	if err != nil {
-		return err
-	}
+	internalServiceChan, remoteServiceChan := make(chan *k8.ServiceRequest), make(chan *k8.ServiceRequest)
+	remoteEndpointsChan := make(chan *k8.EndpointsRequest)
 
 	internalClient, err := kubernetes.NewForConfig(internalConf)
 	if err != nil {
 		return ferrors.Error(ctx, err)
 	}
-	internal := k8.NewInternalClient(internalClient, requestChan)
+	internal := k8.NewInternalClient(internalClient, internalServiceChan, remoteServiceChan, remoteEndpointsChan)
 
 	logger.Info("Setting up remote client")
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	configOverrides := &clientcmd.ConfigOverrides{}
-	if remoteConfPath != "" {
-		loadingRules.ExplicitPath = remoteConfPath
-	}
-	remoteKubeConf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
-	remoteConf, err := remoteKubeConf.ClientConfig()
-	if err != nil {
-		return ferrors.Error(ctx, err)
-	}
 	remoteClient, err := kubernetes.NewForConfig(remoteConf)
 	if err != nil {
 		return ferrors.Error(ctx, err)
 	}
-	remote := k8.NewRemoteClient(remoteClient, requestChan)
-	return coordinate(internal, remote, requestChan)
+
+	remote := k8.NewRemoteClient(remoteClient, remoteServiceChan, remoteEndpointsChan)
+
+	coordinateInternal(internal)
+	coordinateRemote(remote)
+	return nil
 }
 
-func coordinate(internal *k8.InternalClient, remote *k8.RemoteClient, requestChan chan *k8.ServiceRequest) error {
-	logger.Info("Watching services")
-	if err := k8.WatchServices(remote); err != nil {
-		return err
+func coordinateRemote(remote *k8.RemoteClient) {
+	logger.Info("Watching remote endpoints")
+	filter := func(options *metav1.ListOptions) {
+		options.LabelSelector = fmt.Sprintf("%s=%s", k8.CrossClusterServiceLabelKey, k8.CrossClusterServiceLabelValue)
 	}
+	k8.WatchEndpoints(remote, filter)
+	k8.WatchServices(remote, filter)
+}
 
+func coordinateInternal(internal *k8.InternalClient) {
+	filter := func(options *metav1.ListOptions) {}
+	k8.WatchServices(internal, filter)
+	go func() {
+		internal.HandleRemoteServiceEvents()
+	}()
+	go func() {
+		internal.HandleRemoteEndpointsEvents()
+	}()
+	go func() {
+		internal.HandleInternalServiceEvents()
+	}()
+}
+
+func SetupInternalConfig() (*rest.Config, error) {
+	var conf *rest.Config
 	var err error
-	for {
-		request := <-requestChan
-		switch request.Type {
-		case k8.AddService:
-			logger.Info("Got add service request", zap.String("name", request.Endpoint.ObjectMeta.Name))
-			err = internal.CreateService(request)
-		case k8.UpdateService:
-			logger.Info("Got update service request", zap.String("name", request.Endpoint.ObjectMeta.Name))
-			err = internal.UpdateService(request)
-		case k8.DeleteService:
-			logger.Info("Got delete service request", zap.String("name", request.Endpoint.ObjectMeta.Name))
-			err = internal.DeleteService(request)
-		default:
-			err = errors.New("Got impossible request type")
+	if utils.DevMode() {
+		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+		configOverrides := &clientcmd.ConfigOverrides{
+			CurrentContext: devModeInternalContext,
 		}
+		localKubeConf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+		conf, err = localKubeConf.ClientConfig()
+		// TODO: Remove this when done testing locally
 		if err != nil {
-			return ferrors.Error(context.Background(), err)
+			return nil, ferrors.Error(context.Background(), err)
 		}
+	} else {
+		conf, err = rest.InClusterConfig()
 	}
+	if err != nil {
+		return nil, ferrors.Error(context.Background(), err)
+	}
+	return conf, nil
+}
+
+func SetupRemoteConfig(remoteConfPath string) (*rest.Config, error) {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	configOverrides := &clientcmd.ConfigOverrides{}
+	if utils.DevMode() {
+		configOverrides.CurrentContext = devModeRemoteContext
+	}
+	remoteKubeConf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+	remoteConf, err := remoteKubeConf.ClientConfig()
+	if err != nil {
+		return nil, ferrors.Error(context.Background(), err)
+	}
+	return remoteConf, nil
 }

@@ -11,48 +11,73 @@ import (
 )
 
 type RemoteClient struct {
-	K8Client    kubernetes.Interface
-	RequestChan chan *ServiceRequest
+	K8Client      kubernetes.Interface
+	ServiceChan   chan *ServiceRequest
+	EndpointsChan chan *EndpointsRequest
 }
 
-func NewRemoteClient(clientset kubernetes.Interface, requestChan chan *ServiceRequest) *RemoteClient {
+func NewRemoteClient(clientset kubernetes.Interface, serviceChan chan *ServiceRequest, endpointsChan chan *EndpointsRequest) *RemoteClient {
 	return &RemoteClient{
-		K8Client:    clientset,
-		RequestChan: requestChan,
+		K8Client:      clientset,
+		ServiceChan:   serviceChan,
+		EndpointsChan: endpointsChan,
 	}
 }
 
-func (r *RemoteClient) AddService(obj interface{}) {
+func (r *RemoteClient) WatchAddService(obj interface{}) {
 	svc := obj.(*v1.Service)
 	logger.Info("Service added", zap.String("name", svc.ObjectMeta.Name))
-	endpoint, err := r.getEndpointsFromService(svc)
-	if err != nil {
-		return
-	}
-	req := r.createServiceRequest(endpoint, AddService)
-	r.RequestChan <- req
+	r.sendServiceRequest(svc, RequestTypeAdd)
 }
 
-func (r *RemoteClient) DeleteService(obj interface{}) {
+func (r *RemoteClient) WatchDeleteService(obj interface{}) {
 	svc := obj.(*v1.Service)
 	logger.Info("Service deleted", zap.String("name", svc.ObjectMeta.Name))
-	endpoint, err := r.getEndpointsFromService(svc)
-	if err != nil {
-		return
-	}
-	req := r.createServiceRequest(endpoint, DeleteService)
-	r.RequestChan <- req
+	r.sendServiceRequest(svc, RequestTypeDelete)
 }
 
-func (r *RemoteClient) UpdateService(old, new interface{}) {
-	logger.Info("Got update service event")
+func (r *RemoteClient) WatchUpdateService(_, new interface{}) {
 	svc := new.(*v1.Service)
-	endpoint, err := r.getEndpointsFromService(svc)
-	if err != nil {
-		return
+	logger.Info("Service updated", zap.String("name", svc.ObjectMeta.Name))
+	r.sendServiceRequest(svc, RequestTypeUpdate)
+}
+
+func (r *RemoteClient) sendServiceRequest(svc *v1.Service, requestType RequestType) {
+	req := &ServiceRequest{
+		Type:    requestType,
+		Service: svc,
 	}
-	req := r.createServiceRequest(endpoint, UpdateService)
-	r.RequestChan <- req
+	r.ServiceChan <- req
+}
+
+func (r *RemoteClient) WatchAddEndpoints(obj interface{}) {
+	endpoints := obj.(*v1.Endpoints)
+	logger.Info("Endpoints added", zap.String("name", endpoints.ObjectMeta.Name))
+	r.sendEndpointsRequest(endpoints, RequestTypeAdd)
+}
+
+func (r *RemoteClient) WatchUpdateEndpoints(_, new interface{}) {
+	endpoints := new.(*v1.Endpoints)
+	logger.Info("Endpoints updated", zap.String("name", endpoints.ObjectMeta.Name))
+	r.sendEndpointsRequest(endpoints, RequestTypeUpdate)
+}
+
+func (r *RemoteClient) WatchDeleteEndpoints(obj interface{}) {
+	endpoints := obj.(*v1.Endpoints)
+	logger.Info("Endpoints deleted", zap.String("name", endpoints.ObjectMeta.Name))
+	r.sendEndpointsRequest(endpoints, RequestTypeDelete)
+}
+
+func (r *RemoteClient) sendEndpointsRequest(endpoints *v1.Endpoints, requestType RequestType) {
+	req := &EndpointsRequest{
+		Type:      requestType,
+		Endpoints: endpoints,
+	}
+	r.EndpointsChan <- req
+}
+
+func (r *RemoteClient) Client() kubernetes.Interface {
+	return r.K8Client
 }
 
 func (r *RemoteClient) getEndpointsFromService(svc *v1.Service) (*v1.Endpoints, error) {
@@ -62,11 +87,4 @@ func (r *RemoteClient) getEndpointsFromService(svc *v1.Service) (*v1.Endpoints, 
 		return nil, errors.Error(context.Background(), err)
 	}
 	return endpoints, nil
-}
-
-func (r *RemoteClient) createServiceRequest(endpoint *v1.Endpoints, requestType ServiceRequestType) *ServiceRequest {
-	return &ServiceRequest{
-		Type:     requestType,
-		Endpoint: endpoint,
-	}
 }

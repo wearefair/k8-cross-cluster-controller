@@ -43,7 +43,8 @@
 
 [[constraint]]
   name = "k8s.io/client-go"
-  version = "6.0.0"
+  #version = "6.0.0"
+  branch = "release-7.0"
 
 [prune]
   go-tests = true

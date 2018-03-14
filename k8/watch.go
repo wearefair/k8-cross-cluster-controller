@@ -7,35 +7,33 @@ import (
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
-func WatchServices(k *RemoteClient) error {
-	restClient := k.K8Client.CoreV1().RESTClient()
-	// There's another list watch that allows us to filter by the labels
-	watchlist := cache.NewListWatchFromClient(restClient, k8Services, metav1.NamespaceAll, fields.Everything())
+type ServiceWatcher interface {
+	Client() kubernetes.Interface
+	WatchAddService(interface{})
+	WatchUpdateService(interface{}, interface{})
+	WatchDeleteService(interface{})
+}
 
-	uninitializedWatchList := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			options.IncludeUninitialized = true
-			options.LabelSelector = crossClusterServiceLabel
-			return watchlist.List(options)
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			options.IncludeUninitialized = true
-			options.LabelSelector = crossClusterServiceLabel
-			return watchlist.Watch(options)
-		},
-	}
+type EndpointsWatcher interface {
+	Client() kubernetes.Interface
+	WatchAddEndpoints(interface{})
+	WatchUpdateEndpoints(interface{}, interface{})
+	WatchDeleteEndpoints(interface{})
+}
 
-	_, informer := cache.NewInformer(uninitializedWatchList, &v1.Service{}, defaultResyncPeriod,
+func WatchEndpoints(w EndpointsWatcher, filters func(options *metav1.ListOptions)) {
+	restClient := w.Client().CoreV1().RESTClient()
+
+	watchlist := cache.NewFilteredListWatchFromClient(restClient, k8Endpoints, metav1.NamespaceAll, filters)
+	_, informer := cache.NewInformer(watchlist, &v1.Endpoints{}, defaultResyncPeriod,
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    k.AddService,
-			UpdateFunc: k.UpdateService,
-			DeleteFunc: k.DeleteService,
+			AddFunc:    w.WatchAddEndpoints,
+			UpdateFunc: w.WatchUpdateEndpoints,
+			DeleteFunc: w.WatchDeleteEndpoints,
 		},
 	)
 	stop := make(chan struct{})
@@ -47,5 +45,26 @@ func WatchServices(k *RemoteClient) error {
 
 	logger.Info("Shutting down watcher")
 	close(stop)
-	return nil
+}
+
+// Need to have a channel just for sending over events for services
+func WatchServices(w ServiceWatcher, filters func(options *metav1.ListOptions)) {
+	restClient := w.Client().CoreV1().RESTClient()
+	watchlist := cache.NewFilteredListWatchFromClient(restClient, k8Services, metav1.NamespaceAll, filters)
+	_, informer := cache.NewInformer(watchlist, &v1.Service{}, defaultResyncPeriod,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    w.WatchAddService,
+			UpdateFunc: w.WatchUpdateService,
+			DeleteFunc: w.WatchDeleteService,
+		},
+	)
+	stop := make(chan struct{})
+	go informer.Run(stop)
+
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	<-signalChan
+
+	logger.Info("Shutting down watcher")
+	close(stop)
 }

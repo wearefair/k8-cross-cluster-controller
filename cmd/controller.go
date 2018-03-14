@@ -9,10 +9,17 @@ import (
 func runController(cmd *cobra.Command, args []string) {
 	conf, err := utils.PathHelper(kubeconfig)
 	if err != nil {
-		return err
+		panic(err)
 	}
-	if err := controller.Coordinate(conf); err != nil {
-		return err
+	internalConf, err := controller.SetupInternalConfig()
+	if err != nil {
+		panic(err)
 	}
-	return nil
+	remoteConf, err := controller.SetupRemoteConfig(conf)
+	if err != nil {
+		panic(err)
+	}
+	if err := controller.Coordinate(internalConf, remoteConf); err != nil {
+		panic(err)
+	}
 }

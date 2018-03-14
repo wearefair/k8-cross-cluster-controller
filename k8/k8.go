@@ -8,23 +8,32 @@ import (
 )
 
 const (
-	AddService ServiceRequestType = iota
-	UpdateService
-	DeleteService
+	RequestTypeAdd RequestType = iota
+	RequestTypeUpdate
+	RequestTypeDelete
 
-	crossClusterServiceLabel = "fair.com/cross-cluster=true"
-	defaultNamespace         = "default"
-	defaultResyncPeriod      = 30 * time.Second
-	k8Services               = "services"
+	CrossClusterServiceLabelKey   = "fair.com/cross-cluster"
+	CrossClusterServiceLabelValue = "true"
+	defaultNamespace              = "default"
+	defaultResyncPeriod           = 30 * time.Second
+	k8Endpoints                   = "endpoints"
+	k8Services                    = "services"
 )
 
 var (
 	logger = logging.Logger()
 )
 
+type RequestType int
+
 type ServiceRequestType int
 
 type ServiceRequest struct {
-	Type     ServiceRequestType
-	Endpoint *v1.Endpoints
+	Type    RequestType
+	Service *v1.Service
+}
+
+type EndpointsRequest struct {
+	Type      RequestType
+	Endpoints *v1.Endpoints
 }
