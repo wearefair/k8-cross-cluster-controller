@@ -23,7 +23,6 @@ type EndpointsWatcher interface {
 
 func WatchEndpoints(w EndpointsWatcher, filters func(options *metav1.ListOptions), stopChan chan struct{}) {
 	restClient := w.Client().CoreV1().RESTClient()
-
 	watchlist := cache.NewFilteredListWatchFromClient(restClient, k8Endpoints, metav1.NamespaceAll, filters)
 	_, informer := cache.NewInformer(watchlist, &v1.Endpoints{}, defaultResyncPeriod,
 		cache.ResourceEventHandlerFuncs{
@@ -35,7 +34,8 @@ func WatchEndpoints(w EndpointsWatcher, filters func(options *metav1.ListOptions
 	go informer.Run(stopChan)
 }
 
-// Need to have a channel just for sending over events for services
+// WatchServices takes a ServiceWatcher and a filter function to construct a filtered
+// watch list
 func WatchServices(w ServiceWatcher, filters func(options *metav1.ListOptions), stopChan chan struct{}) {
 	restClient := w.Client().CoreV1().RESTClient()
 	watchlist := cache.NewFilteredListWatchFromClient(restClient, k8Services, metav1.NamespaceAll, filters)

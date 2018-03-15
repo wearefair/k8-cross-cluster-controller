@@ -19,6 +19,7 @@ import (
 )
 
 const (
+	// TODO: These should probably be configurable as flags
 	devModeInternalContext = "prototype-general"
 	devModeRemoteContext   = "prototype-secure"
 )
@@ -27,6 +28,10 @@ var (
 	logger = logging.Logger()
 )
 
+// Coordinate takes two sets of Kubernetes configurations, one for a client that
+// interfaces with the cluster that the controller will run on (called internal)
+// and one for a client that interfaces with the peered (remote) cluster.
+// It then sets up watchers on both the remote and internal cluster.
 func Coordinate(internalConf, remoteConf *rest.Config) error {
 	ctx := context.Background()
 	internalServiceChan, remoteServiceChan := make(chan *k8.ServiceRequest), make(chan *k8.ServiceRequest)
@@ -66,7 +71,9 @@ func coordinateRemote(remote *k8.RemoteClient, stopChan chan struct{}) {
 }
 
 func coordinateInternal(internal *k8.InternalClient, stopChan chan struct{}) {
-	filter := func(options *metav1.ListOptions) {}
+	filter := func(options *metav1.ListOptions) {
+		options.LabelSelector = fmt.Sprintf("%s=%s", k8.CrossClusterServiceLabelKey, k8.CrossClusterServiceLabelValue)
+	}
 	k8.WatchServices(internal, filter, stopChan)
 	go func() {
 		internal.HandleRemoteServiceEvents()
@@ -79,6 +86,10 @@ func coordinateInternal(internal *k8.InternalClient, stopChan chan struct{}) {
 	}()
 }
 
+// If the controller is configured to run in development mode, it is configured to
+// load the configuration from the default kubeconfig path ($HOME/.kube/config).
+// Otherwise, it'll run the internal client with the in cluster config
+// and the remote config from the config path that's passed in
 func SetupInternalConfig() (*rest.Config, error) {
 	var conf *rest.Config
 	var err error
@@ -102,6 +113,7 @@ func SetupInternalConfig() (*rest.Config, error) {
 	return conf, nil
 }
 
+// TODO: If remoteConfPath is not an empty string, set it in the config overrides
 func SetupRemoteConfig(remoteConfPath string) (*rest.Config, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	configOverrides := &clientcmd.ConfigOverrides{}

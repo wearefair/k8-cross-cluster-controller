@@ -1,12 +1,8 @@
 package k8
 
 import (
-	"context"
-
-	"github.com/wearefair/service-kit-go/errors"
 	"go.uber.org/zap"
 	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -78,13 +74,4 @@ func (r *RemoteClient) sendEndpointsRequest(endpoints *v1.Endpoints, requestType
 
 func (r *RemoteClient) Client() kubernetes.Interface {
 	return r.K8Client
-}
-
-func (r *RemoteClient) getEndpointsFromService(svc *v1.Service) (*v1.Endpoints, error) {
-	name := svc.ObjectMeta.Name
-	endpoints, err := r.K8Client.CoreV1().Endpoints(defaultNamespace).Get(name, metav1.GetOptions{})
-	if err != nil {
-		return nil, errors.Error(context.Background(), err)
-	}
-	return endpoints, nil
 }

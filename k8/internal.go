@@ -19,8 +19,6 @@ type InternalClient struct {
 	RemoteEndpointsChan chan *EndpointsRequest
 }
 
-// NewClient returns an instance of Client
-// TODO - Don't need dat requestChan
 func NewInternalClient(clientset kubernetes.Interface, internalServiceChan, remoteServiceChan chan *ServiceRequest, remoteEndpointsChan chan *EndpointsRequest) *InternalClient {
 	return &InternalClient{
 		K8Client:            clientset,
@@ -56,9 +54,10 @@ func (k *InternalClient) sendServiceRequest(svc *v1.Service, requestType Request
 	k.InternalServiceChan <- req
 }
 
-// TODO: Must strip out cluster IP
 func (k *InternalClient) HandleRemoteAddService(request *ServiceRequest) error {
-	_, err := k.K8Client.CoreV1().Services(defaultNamespace).Create(request.Service.DeepCopy())
+	_, err := k.K8Client.CoreV1().Services(defaultNamespace).Create(
+		SanitizeService(request.Service.DeepCopy()),
+	)
 	if err != nil {
 		return errors.Error(context.Background(), err)
 	}
@@ -74,8 +73,9 @@ func (k *InternalClient) HandleRemoteDeleteService(request *ServiceRequest) erro
 }
 
 func (k *InternalClient) HandleRemoteUpdateService(request *ServiceRequest) error {
-	// I have no idea if this will work right... might have to do some sort of weird fetch and patch
-	_, err := k.K8Client.CoreV1().Services(defaultNamespace).Update(request.Service.DeepCopy())
+	svc := request.Service.DeepCopy()
+	svc.Spec.ClusterIP = ""
+	_, err := k.K8Client.CoreV1().Services(defaultNamespace).Update(svc)
 	if err != nil {
 		return errors.Error(context.Background(), err)
 	}
@@ -84,7 +84,9 @@ func (k *InternalClient) HandleRemoteUpdateService(request *ServiceRequest) erro
 
 // TODO: Must strip out resource version
 func (k *InternalClient) HandleRemoteAddEndpoints(request *EndpointsRequest) error {
-	_, err := k.K8Client.CoreV1().Endpoints(defaultNamespace).Create(request.Endpoints.DeepCopy())
+	_, err := k.K8Client.CoreV1().Endpoints(defaultNamespace).Create(
+		SanitizeEndpoints(request.Endpoints.DeepCopy()),
+	)
 	if err != nil {
 		return errors.Error(context.Background(), err)
 	}
@@ -92,7 +94,9 @@ func (k *InternalClient) HandleRemoteAddEndpoints(request *EndpointsRequest) err
 }
 
 func (k *InternalClient) HandleRemoteUpdateEndpoints(request *EndpointsRequest) error {
-	_, err := k.K8Client.CoreV1().Endpoints(defaultNamespace).Update(request.Endpoints.DeepCopy())
+	_, err := k.K8Client.CoreV1().Endpoints(defaultNamespace).Update(
+		SanitizeEndpoints(request.Endpoints.DeepCopy()),
+	)
 	if err != nil {
 		return errors.Error(context.Background(), err)
 	}
@@ -135,28 +139,28 @@ func (k *InternalClient) applyCrossClusterLabelToEndpoints(svc *v1.Service) erro
 }
 
 func (k *InternalClient) HandleInternalServiceEvents() error {
-	var err error
 	for {
+		var err error
 		request := <-k.InternalServiceChan
 		switch request.Type {
 		case RequestTypeAdd:
-			err = k.HandleRemoteAddService(request)
+			err = k.HandleInternalAddService(request)
 		case RequestTypeUpdate:
-			err = k.HandleRemoteUpdateService(request)
+			err = k.HandleInternalUpdateService(request)
 		case RequestTypeDelete:
-			err = k.HandleRemoteDeleteService(request)
+			logger.Info("Got delete request type, ignoring")
 		default:
 			logger.Error("Got impossible request type")
 		}
 		if err != nil {
-			return errors.Error(context.Background(), err)
+			logger.Error(err.Error())
 		}
 	}
 }
 
-func (k *InternalClient) HandleRemoteServiceEvents() error {
-	var err error
+func (k *InternalClient) HandleRemoteServiceEvents() {
 	for {
+		var err error
 		request := <-k.RemoteServiceChan
 		switch request.Type {
 		case RequestTypeAdd:
@@ -169,14 +173,14 @@ func (k *InternalClient) HandleRemoteServiceEvents() error {
 			logger.Error("Got impossible request type")
 		}
 		if err != nil {
-			return errors.Error(context.Background(), err)
+			logger.Error(err.Error())
 		}
 	}
 }
 
-func (k *InternalClient) HandleRemoteEndpointsEvents() error {
-	var err error
+func (k *InternalClient) HandleRemoteEndpointsEvents() {
 	for {
+		var err error
 		request := <-k.RemoteEndpointsChan
 		switch request.Type {
 		case RequestTypeAdd:
@@ -189,26 +193,13 @@ func (k *InternalClient) HandleRemoteEndpointsEvents() error {
 			logger.Error("Got impossible request type")
 		}
 		if err != nil {
-			return errors.Error(context.Background(), err)
+			logger.Error(err.Error())
 		}
 	}
 }
 
 func (k *InternalClient) Client() kubernetes.Interface {
 	return k.K8Client
-}
-
-func (k *InternalClient) createServiceFromEndpoints(endpoints *v1.Endpoints) (*v1.Service, error) {
-	svc := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: endpoints.ObjectMeta.Name,
-		},
-	}
-	svc, err := k.K8Client.CoreV1().Services(defaultNamespace).Create(svc)
-	if err != nil {
-		return nil, errors.Error(context.Background(), err)
-	}
-	return svc, nil
 }
 
 func (k *InternalClient) getEndpointsFromService(svc *v1.Service) (*v1.Endpoints, error) {

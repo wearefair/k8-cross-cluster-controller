@@ -284,7 +284,7 @@
   branch = "master"
   name = "golang.org/x/time"
   packages = ["rate"]
-  revision = "6dc17368e09b0e8634d71cac8168d853e869a0c7"
+  revision = "26559e0f760e39c24d730d3224364aef164ee23f"
 
 [[projects]]
   name = "gopkg.in/inf.v0"
