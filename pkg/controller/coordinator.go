@@ -11,9 +11,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type serviceTransformer func(*v1.Service) *v1.Service
+type serviceTransformer func(*v1.Service)
 
-type endpointsTransformer func(*v1.Endpoints) *v1.Endpoints
+type endpointsTransformer func(*v1.Endpoints)
 
 // Local coordinator for picking up local service additions, and tagging endpoints with the appropriate cross cluster label
 func LocalCoordinator(client kubernetes.Interface, localServiceReader chan *k8.ServiceRequest, localEndpointsWriter chan *k8.EndpointsRequest) {
@@ -49,7 +49,7 @@ func RemoteCoordinator(remoteServiceReader, localServiceWriter chan *k8.ServiceR
 		case endpointsRequest := <-remoteEndpointsReader:
 			applyEndpointsTransformations(
 				endpointsRequest.Endpoints,
-				sanitizeEndpointResourceVersion,
+				sanitizeEndpointsResourceVersion,
 				sanitizeEndpointsUID,
 			)
 			localEndpointsWriter <- endpointsRequest
@@ -57,47 +57,46 @@ func RemoteCoordinator(remoteServiceReader, localServiceWriter chan *k8.ServiceR
 	}
 }
 
-func applyEndpointsTransformations(endpoints *v1.Endpoints, transformers ...endpointsTransformer) *v1.Endpoints {
+// Chain together multiple functions that alter an endpoints object. Transformations will be applied
+// in the order that they're passed in.
+func applyEndpointsTransformations(endpoints *v1.Endpoints, transformers ...endpointsTransformer) {
 	for _, transformer := range transformers {
-		endpoints = transformer(endpoints)
+		transformer(endpoints)
 	}
-	return endpoints
 }
 
-func applyServiceTransformations(service *v1.Service, transformers ...serviceTransformer) *v1.Service {
+// Chain together multiple functions that alter a service object. Transformations will be applied
+// in the order that they're passed in.
+func applyServiceTransformations(service *v1.Service, transformers ...serviceTransformer) {
 	for _, transformer := range transformers {
-		service = transformer(service)
+		transformer(service)
 	}
-	return service
 }
 
-// I don't think I need to pass back an endpoint because it's applying the transformation...
-func applyCrossClusterLabelToEndpoints(endpoints *v1.Endpoints) *v1.Endpoints {
+// If the cross cluster label doesn't exist, add it to the endpoints
+func applyCrossClusterLabelToEndpoints(endpoints *v1.Endpoints) {
 	labels := endpoints.ObjectMeta.GetLabels()
-	// If the cross cluster label doesn't exist, add it to the endpoints
+	if labels == nil {
+		labels = map[string]string{}
+	}
 	if _, ok := labels[k8.CrossClusterServiceLabelKey]; !ok {
 		labels[k8.CrossClusterServiceLabelKey] = k8.CrossClusterServiceLabelValue
 		endpoints.ObjectMeta.SetLabels(labels)
 	}
-	return endpoints
 }
 
-func sanitizeServiceResourceVersion(service *v1.Service) *v1.Service {
+func sanitizeServiceResourceVersion(service *v1.Service) {
 	service.ObjectMeta.SetResourceVersion("")
-	return service
 }
 
-func sanitizeServiceClusterIP(service *v1.Service) *v1.Service {
+func sanitizeServiceClusterIP(service *v1.Service) {
 	service.Spec.ClusterIP = ""
-	return service
 }
 
-func sanitizeEndpointResourceVersion(endpoints *v1.Endpoints) *v1.Endpoints {
+func sanitizeEndpointsResourceVersion(endpoints *v1.Endpoints) {
 	endpoints.ObjectMeta.SetResourceVersion("")
-	return endpoints
 }
 
-func sanitizeEndpointsUID(endpoints *v1.Endpoints) *v1.Endpoints {
+func sanitizeEndpointsUID(endpoints *v1.Endpoints) {
 	endpoints.ObjectMeta.SetUID("")
-	return endpoints
 }
