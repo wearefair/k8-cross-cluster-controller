@@ -12,15 +12,17 @@ spec:
     spec:
       containers:
         - name: cross-cluster-controller
-          imagePullPolicy: Always
-          image: 889883130442.dkr.ecr.us-west-2.amazonaws.com/k8-cross-cluster-controller:253286d
+          image: 889883130442.dkr.ecr.us-west-2.amazonaws.com/k8-cross-cluster-controller:${IMAGE_TAG}
           volumeMounts:
             - name: secrets
               mountPath: /etc/k8-cross-cluster-controller
               readOnly: true
           env:
             - name: FAIR_ENV
-              value: staging
+              valueFrom: 
+                configMapKeyRef:
+                  name: cluster
+                  key: environment
             - name: TRACING_APP_NAME
               value: cross-cluster-controller
             - name: CONFIG_PATH
