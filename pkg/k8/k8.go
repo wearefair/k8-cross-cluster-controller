@@ -26,8 +26,6 @@ var (
 
 type RequestType int
 
-type ServiceRequestType int
-
 type ServiceRequest struct {
 	Type    RequestType
 	Service *v1.Service
