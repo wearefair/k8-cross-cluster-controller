@@ -16,18 +16,23 @@ type serviceTransformer func(*v1.Service)
 type endpointsTransformer func(*v1.Endpoints)
 
 // Local coordinator for picking up local service additions, and tagging endpoints with the appropriate cross cluster label
-func LocalCoordinator(client kubernetes.Interface, localServiceReader chan *k8.ServiceRequest, localEndpointsWriter chan *k8.EndpointsRequest) {
+func LocalCoordinator(localClient kubernetes.Interface, localServiceReader chan *k8.ServiceRequest, localEndpointsWriter chan *k8.EndpointsRequest) {
 	for {
 		serviceRequest := <-localServiceReader
 		name := serviceRequest.Service.Name
-		endpoints, err := client.CoreV1().
+		endpoints, err := localClient.CoreV1().
 			Endpoints(serviceRequest.Service.ObjectMeta.Namespace).
 			Get(name, metav1.GetOptions{})
 		if err != nil {
 			errors.Error(context.Background(), err)
 			return
 		}
-		applyEndpointsTransformations(endpoints, applyCrossClusterLabelToEndpoints)
+		applyEndpointsTransformations(
+			endpoints,
+			applyCrossClusterLabelToEndpoints,
+			sanitizeEndpointsResourceVersion,
+			sanitizeEndpointsUID,
+		)
 		req := &k8.EndpointsRequest{
 			Type:      serviceRequest.Type,
 			Endpoints: endpoints,
@@ -40,17 +45,40 @@ func RemoteCoordinator(remoteServiceReader, localServiceWriter chan *k8.ServiceR
 	for {
 		select {
 		case serviceRequest := <-remoteServiceReader:
+			var transformations []serviceTransformer
+			// Input sanitization changes depending on Add/Update. Delete requires none
+			switch serviceRequest.Type {
+			case k8.RequestTypeAdd:
+				transformations = []serviceTransformer{
+					sanitizeServiceClusterIP,
+					sanitizeServiceResourceVersion,
+				}
+			case k8.RequestTypeUpdate:
+				transformations = []serviceTransformer{
+					sanitizeServiceClusterIP,
+					sanitizeServiceUID,
+				}
+			}
 			applyServiceTransformations(
 				serviceRequest.Service,
-				sanitizeServiceClusterIP,
-				sanitizeServiceResourceVersion,
+				transformations...,
 			)
 			localServiceWriter <- serviceRequest
 		case endpointsRequest := <-remoteEndpointsReader:
+			var transformations []endpointsTransformer
+			switch endpointsRequest.Type {
+			case k8.RequestTypeAdd:
+				transformations = []endpointsTransformer{
+					sanitizeEndpointsResourceVersion,
+				}
+			case k8.RequestTypeUpdate:
+				transformations = []endpointsTransformer{
+					sanitizeEndpointsUID,
+				}
+			}
 			applyEndpointsTransformations(
 				endpointsRequest.Endpoints,
-				sanitizeEndpointsResourceVersion,
-				sanitizeEndpointsUID,
+				transformations...,
 			)
 			localEndpointsWriter <- endpointsRequest
 		}
@@ -91,6 +119,10 @@ func sanitizeServiceResourceVersion(service *v1.Service) {
 
 func sanitizeServiceClusterIP(service *v1.Service) {
 	service.Spec.ClusterIP = ""
+}
+
+func sanitizeServiceUID(service *v1.Service) {
+	service.ObjectMeta.SetUID("")
 }
 
 func sanitizeEndpointsResourceVersion(endpoints *v1.Endpoints) {
