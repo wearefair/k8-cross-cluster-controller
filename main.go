@@ -45,22 +45,26 @@ func main() {
 		logger.Fatal(err.Error())
 	}
 
+	logger.Info("Setting up local K8 client")
 	localClient, err := kubernetes.NewForConfig(localConf)
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
 
+	logger.Info("Setting up remote K8 client")
 	remoteClient, err := kubernetes.NewForConfig(remoteConf)
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
 
 	// Set up local readers and writers
+	logger.Info("Setting up local readers and writers")
 	localServiceReader := k8.NewServiceReader(localClient)
 	localEndpointsWriter := k8.NewEndpointsWriter(localClient)
 	localServiceWriter := k8.NewServiceWriter(localClient)
 
 	// Set up remote readers and writers
+	logger.Info("Setting up remote readers")
 	remoteServiceReader := k8.NewServiceReader(remoteClient)
 	remoteEndpointsReader := k8.NewEndpointsReader(remoteClient)
 
@@ -70,17 +74,19 @@ func main() {
 	}
 
 	// Watch local services
+	logger.Info("Setting up watchers")
 	k8.WatchServices(localServiceReader, filter, stopChan)
 
 	// Watch remote endpoints and services
-	k8.WatchEndpoints(remoteServiceReader, filter, stopChan)
-	k8.WatchServices(remoteEndpointsReader, filter, stopChan)
+	k8.WatchEndpoints(remoteEndpointsReader, filter, stopChan)
+	k8.WatchServices(remoteServiceReader, filter, stopChan)
 
 	// Run all writers
 	go localEndpointsWriter.Run()
 	go localServiceWriter.Run()
 
 	// Run all coordinators
+	logger.Info("Setting up coordinators")
 	go controller.LocalCoordinator(localClient, localServiceReader.Events, localEndpointsWriter.Events)
 	go controller.RemoteCoordinator(remoteServiceReader.Events, localServiceWriter.Events, remoteEndpointsReader.Events, localEndpointsWriter.Events)
 

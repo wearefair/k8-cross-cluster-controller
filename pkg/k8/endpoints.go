@@ -3,6 +3,8 @@ package k8
 import (
 	"context"
 
+	"go.uber.org/zap"
+
 	"github.com/wearefair/service-kit-go/errors"
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -41,6 +43,7 @@ func (e *EndpointsReader) Delete(obj interface{}) {
 
 func (e *EndpointsReader) sendRequest(obj interface{}, requestType RequestType) {
 	endpoints := obj.(*v1.Endpoints)
+	logger.Info("Sending endpoints request", zap.String("requestType", RequestTypeMap[requestType]), zap.String("name", endpoints.Name))
 	req := &EndpointsRequest{
 		Type:      requestType,
 		Endpoints: endpoints,

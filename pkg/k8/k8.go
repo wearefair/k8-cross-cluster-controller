@@ -21,7 +21,12 @@ const (
 )
 
 var (
-	logger = logging.Logger()
+	logger         = logging.Logger()
+	RequestTypeMap = map[RequestType]string{
+		RequestTypeAdd:    "add",
+		RequestTypeUpdate: "update",
+		RequestTypeDelete: "delete",
+	}
 )
 
 type RequestType int
