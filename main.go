@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/wearefair/k8-cross-cluster-controller/pkg/controller"
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/k8"
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/utils"
 	ferrors "github.com/wearefair/service-kit-go/errors"
@@ -15,6 +16,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -30,7 +33,6 @@ var (
 )
 
 func main() {
-	//	cmd.Execute()
 	flag.StringVar(&kubeconfig, "kubeconfig", os.Getenv(EnvKubeConfigPath), "Path to Kubeconfig")
 	flag.Parse()
 
@@ -79,8 +81,8 @@ func main() {
 	go localServiceWriter.Run()
 
 	// Run all coordinators
-	go LocalCoordinator(localClient, localServiceReader.Events, localEndpointsWriter.Events)
-	go RemoteCoordinator(remoteServiceReader.Events, localServiceWriter.Events, remoteEndpointsReader.Events, localEndpointsWriter.Events)
+	go controller.LocalCoordinator(localClient, localServiceReader.Events, localEndpointsWriter.Events)
+	go controller.RemoteCoordinator(remoteServiceReader.Events, localServiceWriter.Events, remoteEndpointsReader.Events, localEndpointsWriter.Events)
 
 	// Terminate watchers on SIGINT
 	signalChan := make(chan os.Signal, 1)

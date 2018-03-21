@@ -1,11 +1,14 @@
-package k8
+package controller
 
 import (
 	"context"
 
+	"github.com/wearefair/k8-cross-cluster-controller/pkg/k8"
 	"github.com/wearefair/service-kit-go/errors"
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type serviceTransformer func(*v1.Service) *v1.Service
@@ -13,7 +16,7 @@ type serviceTransformer func(*v1.Service) *v1.Service
 type endpointsTransformer func(*v1.Endpoints) *v1.Endpoints
 
 // Local coordinator for picking up local service additions, and tagging endpoints with the appropriate cross cluster label
-func LocalCoordinator(client kubernetes.Interface, localServiceReader chan *ServiceRequest, localEndpointsWriter chan *EndpointsRequest) {
+func LocalCoordinator(client kubernetes.Interface, localServiceReader chan *k8.ServiceRequest, localEndpointsWriter chan *k8.EndpointsRequest) {
 	for {
 		serviceRequest := <-localServiceReader
 		name := serviceRequest.Service.Name
@@ -25,7 +28,7 @@ func LocalCoordinator(client kubernetes.Interface, localServiceReader chan *Serv
 			return
 		}
 		applyEndpointsTransformations(endpoints, applyCrossClusterLabelToEndpoints)
-		req := &EndpointsRequest{
+		req := &k8.EndpointsRequest{
 			Type:      serviceRequest.Type,
 			Endpoints: endpoints,
 		}
@@ -33,7 +36,7 @@ func LocalCoordinator(client kubernetes.Interface, localServiceReader chan *Serv
 	}
 }
 
-func RemoteCoordinator(remoteServiceReader, localServiceWriter chan *ServiceRequest, remoteEndpointsReader, localEndpointsWriter chan *EndpointsRequest) {
+func RemoteCoordinator(remoteServiceReader, localServiceWriter chan *k8.ServiceRequest, remoteEndpointsReader, localEndpointsWriter chan *k8.EndpointsRequest) {
 	for {
 		select {
 		case serviceRequest := <-remoteServiceReader:
@@ -72,8 +75,8 @@ func applyServiceTransformations(service *v1.Service, transformers ...serviceTra
 func applyCrossClusterLabelToEndpoints(endpoints *v1.Endpoints) *v1.Endpoints {
 	labels := endpoints.ObjectMeta.GetLabels()
 	// If the cross cluster label doesn't exist, add it to the endpoints
-	if _, ok := labels[CrossClusterServiceLabelKey]; !ok {
-		labels[CrossClusterServiceLabelKey] = CrossClusterServiceLabelValue
+	if _, ok := labels[k8.CrossClusterServiceLabelKey]; !ok {
+		labels[k8.CrossClusterServiceLabelKey] = k8.CrossClusterServiceLabelValue
 		endpoints.ObjectMeta.SetLabels(labels)
 	}
 	return endpoints

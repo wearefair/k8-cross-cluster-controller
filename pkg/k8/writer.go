@@ -16,7 +16,7 @@ type Writer struct {
 // Can probably genericize writer to make this work
 func (w *Writer) NewWriter(clientset kubernetes.Interface) *Writer {
 	return &Writer{
-		Events: make(chan *EndpointsRequest),
+		Events: make(chan *K8Request),
 		Client: clientset,
 	}
 }

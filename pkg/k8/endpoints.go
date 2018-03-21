@@ -6,22 +6,24 @@ import (
 	"github.com/wearefair/service-kit-go/errors"
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type EndpointsReader struct {
 	Events chan *EndpointsRequest
-	Client kubernetes.Interface
+	client kubernetes.Interface
 }
 
 type EndpointsWriter struct {
 	Events chan *EndpointsRequest
-	Client kubernetes.Interface
+	client kubernetes.Interface
 }
 
 func NewEndpointsReader(clientset kubernetes.Interface) *EndpointsReader {
 	return &EndpointsReader{
 		Events: make(chan *EndpointsRequest),
-		Client: clientset,
+		client: clientset,
 	}
 }
 
@@ -47,32 +49,32 @@ func (e *EndpointsReader) sendRequest(obj interface{}, requestType RequestType) 
 }
 
 func (e *EndpointsReader) Client() kubernetes.Interface {
-	return e.Client
+	return e.client
 }
 
 func NewEndpointsWriter(clientset kubernetes.Interface) *EndpointsWriter {
 	return &EndpointsWriter{
 		Events: make(chan *EndpointsRequest),
-		Client: clientset,
+		client: clientset,
 	}
 }
 
 func (e *EndpointsWriter) add(endpoints *v1.Endpoints) {
-	err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Create(endpoints)
+	_, err := e.client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Create(endpoints)
 	if err != nil {
 		errors.Error(context.Background(), err)
 	}
 }
 
 func (e *EndpointsWriter) update(endpoints *v1.Endpoints) {
-	err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Update(endpoints)
+	_, err := e.client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Update(endpoints)
 	if err != nil {
 		errors.Error(context.Background(), err)
 	}
 }
 
 func (e *EndpointsWriter) delete(endpoints *v1.Endpoints) {
-	err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Delete(endpoints.Name)
+	err := e.client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Delete(endpoints.Name, &metav1.DeleteOptions{})
 	if err != nil {
 		errors.Error(context.Background(), err)
 	}

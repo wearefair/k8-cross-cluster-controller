@@ -5,23 +5,24 @@ import (
 
 	"github.com/wearefair/service-kit-go/errors"
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
 type ServiceReader struct {
 	Events chan *ServiceRequest
-	Client kubernetes.Interface
+	client kubernetes.Interface
 }
 
 type ServiceWriter struct {
 	Events chan *ServiceRequest
-	Client kubernetes.Interface
+	client kubernetes.Interface
 }
 
 func NewServiceReader(clientset kubernetes.Interface) *ServiceReader {
 	return &ServiceReader{
 		Events: make(chan *ServiceRequest),
-		Client: clientset,
+		client: clientset,
 	}
 }
 
@@ -47,32 +48,32 @@ func (s *ServiceReader) sendRequest(obj interface{}, requestType RequestType) {
 }
 
 func (s *ServiceReader) Client() kubernetes.Interface {
-	return s.Client
+	return s.client
 }
 
 func NewServiceWriter(clientset kubernetes.Interface) *ServiceWriter {
 	return &ServiceWriter{
 		Events: make(chan *ServiceRequest),
-		Client: clientset,
+		client: clientset,
 	}
 }
 
 func (s *ServiceWriter) add(svc *v1.Service) {
-	err := e.Client.CoreV1().Service(svc.ObjectMeta.Namespace).Create(svc)
+	_, err := s.client.CoreV1().Services(svc.ObjectMeta.Namespace).Create(svc)
 	if err != nil {
 		errors.Error(context.Background(), err)
 	}
 }
 
 func (s *ServiceWriter) update(svc *v1.Service) {
-	err := e.Client.CoreV1().Service(svc.ObjectMeta.Namespace).Update(svc)
+	_, err := s.client.CoreV1().Services(svc.ObjectMeta.Namespace).Update(svc)
 	if err != nil {
 		errors.Error(context.Background(), err)
 	}
 }
 
 func (s *ServiceWriter) delete(svc *v1.Service) {
-	err := e.Client.CoreV1().Service(svc.ObjectMeta.Namespace).Delete(svc.Name)
+	err := s.client.CoreV1().Services(svc.ObjectMeta.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
 	if err != nil {
 		errors.Error(context.Background(), err)
 	}
@@ -80,14 +81,14 @@ func (s *ServiceWriter) delete(svc *v1.Service) {
 
 func (s *ServiceWriter) Run() {
 	for {
-		request := <-e.Events
+		request := <-s.Events
 		switch request.Type {
 		case RequestTypeAdd:
-			e.add(request.Endpoints)
+			s.add(request.Service)
 		case RequestTypeUpdate:
-			e.update(request.Endpoints)
+			s.update(request.Service)
 		case RequestTypeDelete:
-			e.delete(request.Endpoints)
+			s.delete(request.Service)
 		}
 	}
 }
