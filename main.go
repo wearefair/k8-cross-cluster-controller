@@ -139,7 +139,7 @@ func setupLocalConfig() (*rest.Config, error) {
 func setupRemoteConfig(remoteConfPath string) (*rest.Config, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	if remoteConfPath != "" {
-		loadingRules.Path = remoteConfPath
+		loadingRules.ExplicitPath = remoteConfPath
 	}
 	configOverrides := &clientcmd.ConfigOverrides{}
 	if utils.DevMode() {

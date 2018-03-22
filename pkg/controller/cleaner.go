@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	defaultSleepTime = 10 * time.Minute
+	defaultSleepTime = 5 * time.Minute
 )
 
 var (
