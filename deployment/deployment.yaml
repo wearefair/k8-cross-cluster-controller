@@ -25,12 +25,12 @@ spec:
                   key: environment
             - name: TRACING_APP_NAME
               value: cross-cluster-controller
-            - name: CONFIG_PATH
-              value: /etc/k8-cross-cluster-controller/file.yaml
+            - name: KUBECONFIG_PATH
+              value: /etc/k8-cross-cluster-controller/kubeconfig.yaml
       volumes:
         - name: secrets
           secret:
             secretName: k8-cross-cluster-controller
             items:
-              - key: file.yaml
-                path: file.yaml
+              - key: kubeconfig.yaml
+                path: kubeconfig.yaml

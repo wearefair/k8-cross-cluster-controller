@@ -96,7 +96,7 @@ func main() {
 	go controller.ServiceTransformer(intermediaryServiceReaderChan, localServiceWriterChan)
 	go controller.EndpointsTransformer(intermediaryEndpointsReaderChan, localEndpointsWriterChan)
 
-	// Setting up cleaner
+	// Run service/endpoints cleaner
 	logger.Info("Setting up service/endpoints cleaner")
 	cleaner := controller.NewCleaner(localClient, remoteClient, localEndpointsWriterChan, localServiceWriterChan)
 	go cleaner.Run()
@@ -135,7 +135,9 @@ func setupLocalConfig() (*rest.Config, error) {
 	return conf, nil
 }
 
-// TODO: If remoteConfPath is not an empty string, set it in the config overrides
+// If a remote conf path is passed in, it will load it up with the explicit path. Otherwise
+// it'll load the conf from the default kubeconfig path ($HOME/.kube/config).
+// If it's run in dev mode, it will run in the context that's set
 func setupRemoteConfig(remoteConfPath string) (*rest.Config, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	if remoteConfPath != "" {
