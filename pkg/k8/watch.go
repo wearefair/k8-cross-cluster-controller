@@ -8,14 +8,13 @@ import (
 )
 
 type Watcher interface {
-	Client() kubernetes.Interface
 	Add(interface{})
 	Update(interface{}, interface{})
 	Delete(interface{})
 }
 
-func WatchEndpoints(w Watcher, filters func(options *metav1.ListOptions), stopChan chan struct{}) {
-	restClient := w.Client().CoreV1().RESTClient()
+func WatchEndpoints(clientset kubernetes.Interface, w Watcher, filters func(options *metav1.ListOptions), stopChan chan struct{}) {
+	restClient := clientset.CoreV1().RESTClient()
 	watchlist := cache.NewFilteredListWatchFromClient(restClient, k8Endpoints, metav1.NamespaceAll, filters)
 	_, informer := cache.NewInformer(watchlist, &v1.Endpoints{}, defaultResyncPeriod,
 		cache.ResourceEventHandlerFuncs{
@@ -29,8 +28,8 @@ func WatchEndpoints(w Watcher, filters func(options *metav1.ListOptions), stopCh
 
 // WatchServices takes a ServiceWatcher and a filter function to construct a filtered
 // watch list
-func WatchServices(w Watcher, filters func(options *metav1.ListOptions), stopChan chan struct{}) {
-	restClient := w.Client().CoreV1().RESTClient()
+func WatchServices(clientset kubernetes.Interface, w Watcher, filters func(options *metav1.ListOptions), stopChan chan struct{}) {
+	restClient := clientset.CoreV1().RESTClient()
 	watchlist := cache.NewFilteredListWatchFromClient(restClient, k8Services, metav1.NamespaceAll, filters)
 	_, informer := cache.NewInformer(watchlist, &v1.Service{}, defaultResyncPeriod,
 		cache.ResourceEventHandlerFuncs{

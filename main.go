@@ -59,14 +59,17 @@ func main() {
 
 	// Set up local readers and writers
 	logger.Info("Setting up local readers and writers")
-	localServiceReader := k8.NewServiceReader(localClient)
-	localEndpointsWriter := k8.NewEndpointsWriter(localClient)
-	localServiceWriter := k8.NewServiceWriter(localClient)
+	localServiceWriterChan := make(chan *k8.ServiceRequest)
+	localEndpointsWriterChan := make(chan *k8.EndpointsRequest)
+	localEndpointsWriter := k8.NewEndpointsWriter(localClient, localEndpointsWriterChan)
+	localServiceWriter := k8.NewServiceWriter(localClient, localServiceWriterChan)
 
 	// Set up remote readers and writers
 	logger.Info("Setting up remote readers")
-	remoteServiceReader := k8.NewServiceReader(remoteClient)
-	remoteEndpointsReader := k8.NewEndpointsReader(remoteClient)
+	remoteServiceReaderChan := make(chan *k8.ServiceRequest)
+	remoteEndpointsReaderChan := make(chan *k8.EndpointsRequest)
+	remoteServiceReader := k8.NewServiceReader(remoteServiceReaderChan)
+	remoteEndpointsReader := k8.NewEndpointsReader(remoteEndpointsReaderChan)
 
 	stopChan := make(chan struct{})
 	filter := func(options *metav1.ListOptions) {
@@ -75,11 +78,11 @@ func main() {
 
 	// Watch local services
 	logger.Info("Setting up watchers")
-	k8.WatchServices(localServiceReader, filter, stopChan)
+	k8.WatchServices(localClient, localServiceReader, filter, stopChan)
 
 	// Watch remote endpoints and services
-	k8.WatchEndpoints(remoteEndpointsReader, filter, stopChan)
-	k8.WatchServices(remoteServiceReader, filter, stopChan)
+	k8.WatchEndpoints(remoteClient, remoteEndpointsReader, filter, stopChan)
+	k8.WatchServices(remoteClient, remoteServiceReader, filter, stopChan)
 
 	// Run all writers
 	go localEndpointsWriter.Run()
@@ -87,8 +90,7 @@ func main() {
 
 	// Run all coordinators
 	logger.Info("Setting up coordinators")
-	go controller.LocalCoordinator(localClient, localServiceReader.Events, localEndpointsWriter.Events)
-	go controller.RemoteCoordinator(remoteServiceReader.Events, localServiceWriter.Events, remoteEndpointsReader.Events, localEndpointsWriter.Events)
+	go controller.RemoteCoordinator(remoteServiceReaderChan, localServiceWriterChan, remoteEndpointsReaderChan, localEndpointsWriterChan)
 
 	// Terminate watchers on SIGINT
 	signalChan := make(chan os.Signal, 1)

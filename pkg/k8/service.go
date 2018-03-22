@@ -13,7 +13,6 @@ import (
 
 type ServiceReader struct {
 	Events chan *ServiceRequest
-	client kubernetes.Interface
 }
 
 type ServiceWriter struct {
@@ -21,10 +20,9 @@ type ServiceWriter struct {
 	client kubernetes.Interface
 }
 
-func NewServiceReader(clientset kubernetes.Interface) *ServiceReader {
+func NewServiceReader(events chan *ServiceRequest) *ServiceReader {
 	return &ServiceReader{
-		Events: make(chan *ServiceRequest),
-		client: clientset,
+		Events: events,
 	}
 }
 
@@ -50,13 +48,9 @@ func (s *ServiceReader) sendRequest(obj interface{}, requestType RequestType) {
 	s.Events <- req
 }
 
-func (s *ServiceReader) Client() kubernetes.Interface {
-	return s.client
-}
-
-func NewServiceWriter(clientset kubernetes.Interface) *ServiceWriter {
+func NewServiceWriter(clientset kubernetes.Interface, events chan *ServiceRequest) *ServiceWriter {
 	return &ServiceWriter{
-		Events: make(chan *ServiceRequest),
+		Events: events,
 		client: clientset,
 	}
 }

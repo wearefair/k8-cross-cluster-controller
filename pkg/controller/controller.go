@@ -16,28 +16,69 @@ type serviceTransformer func(*v1.Service)
 type endpointsTransformer func(*v1.Endpoints)
 
 // Local coordinator for picking up local service additions, and tagging endpoints with the appropriate cross cluster label
-func LocalCoordinator(localClient kubernetes.Interface, localServiceReader chan *k8.ServiceRequest, localEndpointsWriter chan *k8.EndpointsRequest) {
+//func LocalCoordinator(localClient kubernetes.Interface, localServiceReader chan *k8.ServiceRequest, localEndpointsWriter chan *k8.EndpointsRequest) {
+//	for {
+//		serviceRequest := <-localServiceReader
+//		name := serviceRequest.Service.Name
+//		endpoints, err := localClient.CoreV1().
+//			Endpoints(serviceRequest.Service.ObjectMeta.Namespace).
+//			Get(name, metav1.GetOptions{})
+//		if err != nil {
+//			errors.Error(context.Background(), err)
+//			return
+//		}
+//		applyEndpointsTransformations(
+//			endpoints,
+//			applyCrossClusterLabelToEndpoints,
+//			sanitizeEndpointsResourceVersion,
+//			sanitizeEndpointsUID,
+//		)
+//		req := &k8.EndpointsRequest{
+//			Type:      serviceRequest.Type,
+//			Endpoints: endpoints,
+//		}
+//		localEndpointsWriter <- req
+//	}
+//}
+
+// Will add in local state if necessary
+func ServiceAugmenter(localClient kubernetes.Interface, remoteServiceReader, intermediaryServiceReader chan *k8.ServiceRequest) {
 	for {
-		serviceRequest := <-localServiceReader
-		name := serviceRequest.Service.Name
-		endpoints, err := localClient.CoreV1().
-			Endpoints(serviceRequest.Service.ObjectMeta.Namespace).
-			Get(name, metav1.GetOptions{})
-		if err != nil {
-			errors.Error(context.Background(), err)
-			return
+		req := <-remoteServiceReader
+		switch req.Type {
+		// Get local state
+		case k8.RequestTypeUpdate:
+			localService, err := localClient.CoreV1().Services(req.Service.ObjectMeta.Namespace).Get(req.Service.Name, metav1.GetOptions{})
+			if err != nil {
+				errors.Error(context.Background(), err)
+				continue
+			}
+			req.LocalService = localService
 		}
-		applyEndpointsTransformations(
-			endpoints,
-			applyCrossClusterLabelToEndpoints,
-			sanitizeEndpointsResourceVersion,
-			sanitizeEndpointsUID,
-		)
-		req := &k8.EndpointsRequest{
-			Type:      serviceRequest.Type,
-			Endpoints: endpoints,
+		intermediaryServiceReader <- req
+	}
+}
+
+// Just applies the data transformations to the services that are necessary before writing
+func ServiceTransformer(intermediaryServiceReader, localServiceWriter chan *k8.ServiceRequest) {
+	for {
+		req := <-intermediaryServiceReader
+	}
+}
+
+func EndpointsAugmenter(localClient kubernetes.Interface, remoteEndpointsReader, intermediaryEndpointsReader chan *k8.EndpointsRequest) {
+	for {
+		req := <-remoteEndpointsReader
+		switch req.Type {
+		case k8.RequestTypeUpdate:
+			localEndpoints, err := localClient.CoreV1().Endpoints(req.Endpoints.ObjectMeta.Namespace).Get(req.Endpoints.Name, metav1.GetOptions{})
+			if err != nil {
+				errors.Error(context.Background(), err)
+				continue
+			}
+			req.LocalEndpoints = localEndpoints
 		}
-		localEndpointsWriter <- req
+		intermediaryEndpointsReader <- req
 	}
 }
 
