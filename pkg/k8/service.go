@@ -56,6 +56,7 @@ func NewServiceWriter(clientset kubernetes.Interface, events chan *ServiceReques
 }
 
 func (s *ServiceWriter) add(svc *v1.Service) {
+	logger.Info("Creating service", zap.String("name", svc.Name))
 	_, err := s.client.CoreV1().Services(svc.ObjectMeta.Namespace).Create(svc)
 	if err != nil {
 		errors.Error(context.Background(), err)
@@ -63,6 +64,7 @@ func (s *ServiceWriter) add(svc *v1.Service) {
 }
 
 func (s *ServiceWriter) update(svc *v1.Service) {
+	logger.Info("Updating service", zap.String("name", svc.Name))
 	_, err := s.client.CoreV1().Services(svc.ObjectMeta.Namespace).Update(svc)
 	if err != nil {
 		errors.Error(context.Background(), err)
@@ -70,6 +72,7 @@ func (s *ServiceWriter) update(svc *v1.Service) {
 }
 
 func (s *ServiceWriter) delete(svc *v1.Service) {
+	logger.Info("Deleting service", zap.String("name", svc.Name))
 	err := s.client.CoreV1().Services(svc.ObjectMeta.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
 	if err != nil {
 		errors.Error(context.Background(), err)

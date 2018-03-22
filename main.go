@@ -59,6 +59,7 @@ func main() {
 
 	// Set up local readers and writers
 	logger.Info("Setting up local readers and writers")
+
 	localServiceWriterChan := make(chan *k8.ServiceRequest)
 	localEndpointsWriterChan := make(chan *k8.EndpointsRequest)
 	localEndpointsWriter := k8.NewEndpointsWriter(localClient, localEndpointsWriterChan)
@@ -71,16 +72,17 @@ func main() {
 	remoteServiceReader := k8.NewServiceReader(remoteServiceReaderChan)
 	remoteEndpointsReader := k8.NewEndpointsReader(remoteEndpointsReaderChan)
 
+	// Create reader chans that aren't attached to readers hooked up to
+	intermediaryServiceReaderChan := make(chan *k8.ServiceRequest)
+	intermediaryEndpointsReaderChan := make(chan *k8.EndpointsRequest)
+
 	stopChan := make(chan struct{})
 	filter := func(options *metav1.ListOptions) {
 		options.LabelSelector = fmt.Sprintf("%s=%s", k8.CrossClusterServiceLabelKey, k8.CrossClusterServiceLabelValue)
 	}
 
-	// Watch local services
-	logger.Info("Setting up watchers")
-	k8.WatchServices(localClient, localServiceReader, filter, stopChan)
-
 	// Watch remote endpoints and services
+	logger.Info("Setting up watchers")
 	k8.WatchEndpoints(remoteClient, remoteEndpointsReader, filter, stopChan)
 	k8.WatchServices(remoteClient, remoteServiceReader, filter, stopChan)
 
@@ -88,9 +90,12 @@ func main() {
 	go localEndpointsWriter.Run()
 	go localServiceWriter.Run()
 
-	// Run all coordinators
-	logger.Info("Setting up coordinators")
-	go controller.RemoteCoordinator(remoteServiceReaderChan, localServiceWriterChan, remoteEndpointsReaderChan, localEndpointsWriterChan)
+	// Run all readers/transformers
+	logger.Info("Setting up transformers")
+	go controller.ServiceAugmenter(localClient, remoteServiceReaderChan, intermediaryServiceReaderChan)
+	go controller.EndpointsAugmenter(localClient, remoteEndpointsReaderChan, intermediaryEndpointsReaderChan)
+	go controller.ServiceTransformer(intermediaryServiceReaderChan, localServiceWriterChan)
+	go controller.EndpointsTransformer(intermediaryEndpointsReaderChan, localEndpointsWriterChan)
 
 	// Terminate watchers on SIGINT
 	signalChan := make(chan os.Signal, 1)

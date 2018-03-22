@@ -57,6 +57,7 @@ func NewEndpointsWriter(clientset kubernetes.Interface, events chan *EndpointsRe
 }
 
 func (e *EndpointsWriter) add(endpoints *v1.Endpoints) {
+	logger.Info("Creating endpoints", zap.String("name", endpoints.Name))
 	_, err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Create(endpoints)
 	if err != nil {
 		errors.Error(context.Background(), err)
@@ -64,6 +65,7 @@ func (e *EndpointsWriter) add(endpoints *v1.Endpoints) {
 }
 
 func (e *EndpointsWriter) update(endpoints *v1.Endpoints) {
+	logger.Info("Updating endpoints", zap.String("name", endpoints.Name))
 	_, err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Update(endpoints)
 	if err != nil {
 		errors.Error(context.Background(), err)
@@ -71,6 +73,7 @@ func (e *EndpointsWriter) update(endpoints *v1.Endpoints) {
 }
 
 func (e *EndpointsWriter) delete(endpoints *v1.Endpoints) {
+	logger.Info("Deleting endpoints", zap.String("name", endpoints.Name))
 	err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Delete(endpoints.Name, &metav1.DeleteOptions{})
 	if err != nil {
 		errors.Error(context.Background(), err)
