@@ -123,7 +123,6 @@ func setupLocalConfig() (*rest.Config, error) {
 		}
 		localKubeConf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
 		conf, err = localKubeConf.ClientConfig()
-		// TODO: Remove this when done testing locally
 		if err != nil {
 			return nil, ferrors.Error(context.Background(), err)
 		}
@@ -139,6 +138,9 @@ func setupLocalConfig() (*rest.Config, error) {
 // TODO: If remoteConfPath is not an empty string, set it in the config overrides
 func setupRemoteConfig(remoteConfPath string) (*rest.Config, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	if remoteConfPath != "" {
+		loadingRules.Path = remoteConfPath
+	}
 	configOverrides := &clientcmd.ConfigOverrides{}
 	if utils.DevMode() {
 		configOverrides.CurrentContext = devModeRemoteContext
