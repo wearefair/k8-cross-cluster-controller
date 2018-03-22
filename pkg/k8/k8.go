@@ -1,6 +1,7 @@
 package k8
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/wearefair/service-kit-go/logging"
@@ -27,6 +28,7 @@ var (
 		RequestTypeUpdate: "update",
 		RequestTypeDelete: "delete",
 	}
+	CrossClusterLabel = fmt.Sprintf("%s=%s", CrossClusterServiceLabelKey, CrossClusterServiceLabelValue)
 )
 
 type RequestType int

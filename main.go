@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -78,7 +77,7 @@ func main() {
 
 	stopChan := make(chan struct{})
 	filter := func(options *metav1.ListOptions) {
-		options.LabelSelector = fmt.Sprintf("%s=%s", k8.CrossClusterServiceLabelKey, k8.CrossClusterServiceLabelValue)
+		options.LabelSelector = k8.CrossClusterLabel
 	}
 
 	// Watch remote endpoints and services
@@ -96,6 +95,11 @@ func main() {
 	go controller.EndpointsAugmenter(localClient, remoteEndpointsReaderChan, intermediaryEndpointsReaderChan)
 	go controller.ServiceTransformer(intermediaryServiceReaderChan, localServiceWriterChan)
 	go controller.EndpointsTransformer(intermediaryEndpointsReaderChan, localEndpointsWriterChan)
+
+	// Setting up cleaner
+	logger.Info("Setting up service/endpoints cleaner")
+	cleaner := controller.NewCleaner(localClient, remoteClient, localEndpointsWriterChan, localServiceWriterChan)
+	go cleaner.Run()
 
 	// Terminate watchers on SIGINT
 	signalChan := make(chan os.Signal, 1)
