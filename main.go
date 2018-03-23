@@ -141,9 +141,9 @@ func main() {
 	config := leaderelection.LeaderElectionConfig{
 		Callbacks:     callbacks,
 		Lock:          lock,
-		LeaseDuration: 1 * time.Minute,
-		RenewDeadline: 30 * time.Second,
-		RetryPeriod:   5 * time.Second,
+		LeaseDuration: leaderElectionLeaseDuration,
+		RenewDeadline: leaderElectionRenewDeadline,
+		RetryPeriod:   leaderElectionRetryPeriod,
 	}
 	leaderelection.RunOrDie(config)
 }
