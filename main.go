@@ -61,30 +61,25 @@ func main() {
 		logger.Fatal(err.Error())
 	}
 
-	// Set up local readers and writers
 	logger.Info("Setting up local readers and writers")
-
 	localServiceWriterChan := make(chan *k8.ServiceRequest)
 	localEndpointsWriterChan := make(chan *k8.EndpointsRequest)
 	localEndpointsWriter := k8.NewEndpointsWriter(localClient, localEndpointsWriterChan)
 	localServiceWriter := k8.NewServiceWriter(localClient, localServiceWriterChan)
 
-	// Set up remote readers and writers
 	logger.Info("Setting up remote readers")
 	remoteServiceReaderChan := make(chan *k8.ServiceRequest)
 	remoteEndpointsReaderChan := make(chan *k8.EndpointsRequest)
 	remoteServiceReader := k8.NewServiceReader(remoteServiceReaderChan)
 	remoteEndpointsReader := k8.NewEndpointsReader(remoteEndpointsReaderChan)
 
-	// Create reader chans that aren't attached to readers hooked up to
 	intermediaryServiceReaderChan := make(chan *k8.ServiceRequest)
 	intermediaryEndpointsReaderChan := make(chan *k8.EndpointsRequest)
 
-	// Run all writers
+	// Run local K8 writers
 	go localEndpointsWriter.Run()
 	go localServiceWriter.Run()
 
-	// Run all readers/transformers
 	logger.Info("Setting up transformers")
 	go controller.ServiceAugmenter(localClient, remoteServiceReaderChan, intermediaryServiceReaderChan)
 	go controller.EndpointsAugmenter(localClient, remoteEndpointsReaderChan, intermediaryEndpointsReaderChan)
@@ -100,11 +95,10 @@ func main() {
 	// Reference for leader election setup:
 	// https://github.com/kubernetes/kubernetes/blob/dce1b881284a103909f5cfa969ff56e5e0565362/cmd/cloud-controller-manager/app/controllermanager.go#L157-L190
 	run := func(stopChan <-chan struct{}) {
-		// Watch remote endpoints and services
 		logger.Info("Setting up watchers")
 		k8.WatchEndpoints(remoteClient, remoteEndpointsReader, filter, stopChan)
 		k8.WatchServices(remoteClient, remoteServiceReader, filter, stopChan)
-		// Run service/endpoints cleaner
+
 		logger.Info("Setting up service/endpoints cleaner")
 		cleaner := controller.NewCleaner(localClient, remoteClient, localEndpointsWriterChan, localServiceWriterChan)
 		go cleaner.Run(stopChan)
