@@ -25,19 +25,24 @@ import (
 )
 
 const (
-	EnvKubeConfigPath = "KUBECONFIG_PATH"
-	// TODO: These should probably be configurable as flags
-	devModeLocalContext  = "prototype-general"
-	devModeRemoteContext = "prototype-secure"
+	EnvKubeConfigPath           = "KUBECONFIG_PATH"
+	leaderElectionLeaseDuration = 1 * time.Minute
+	leaderElectionRenewDeadline = 30 * time.Second
+	leaderElectionRetryPeriod   = 5 * time.Second
 )
 
 var (
 	kubeconfig string
-	logger     = logging.Logger()
+	// These are only set and used when the controller is running in dev mode
+	localContext  string
+	remoteContext string
+	logger        = logging.Logger()
 )
 
 func main() {
-	flag.StringVar(&kubeconfig, "kubeconfig", os.Getenv(EnvKubeConfigPath), "Path to Kubeconfig")
+	flag.StringVar(&kubeconfig, "kubeconfig", os.Getenv(EnvKubeConfigPath), "Path to kubeconfig for remote cluster")
+	flag.StringVar(&localContext, "local-context", "prototype-general", "DEV MODE: Context override for the local cluster. Defaults to prototype-general")
+	flag.StringVar(&remoteContext, "remote-context", "prototype-secure", "DEV MODE: Context override for the remote cluster. Defaults to prototype-secure")
 	flag.Parse()
 
 	localConf, err := setupLocalConfig()
@@ -153,7 +158,7 @@ func setupLocalConfig() (*rest.Config, error) {
 	if utils.DevMode() {
 		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 		configOverrides := &clientcmd.ConfigOverrides{
-			CurrentContext: devModeLocalContext,
+			CurrentContext: localContext,
 		}
 		localKubeConf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
 		conf, err = localKubeConf.ClientConfig()
@@ -179,7 +184,7 @@ func setupRemoteConfig(remoteConfPath string) (*rest.Config, error) {
 	}
 	configOverrides := &clientcmd.ConfigOverrides{}
 	if utils.DevMode() {
-		configOverrides.CurrentContext = devModeRemoteContext
+		configOverrides.CurrentContext = remoteContext
 	}
 	remoteKubeConf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
 	remoteConf, err := remoteKubeConf.ClientConfig()
