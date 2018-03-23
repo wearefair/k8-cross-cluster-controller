@@ -96,7 +96,9 @@ func main() {
 		options.LabelSelector = k8.CrossClusterLabel
 	}
 
-	// Set up leader election callbacks
+	// Set up leader election callback funcs
+	// Reference for leader election setup:
+	// https://github.com/kubernetes/kubernetes/blob/dce1b881284a103909f5cfa969ff56e5e0565362/cmd/cloud-controller-manager/app/controllermanager.go#L157-L190
 	run := func(stopChan <-chan struct{}) {
 		// Watch remote endpoints and services
 		logger.Info("Setting up watchers")
@@ -107,18 +109,15 @@ func main() {
 		cleaner := controller.NewCleaner(localClient, remoteClient, localEndpointsWriterChan, localServiceWriterChan)
 		go cleaner.Run(stopChan)
 	}
-
 	stop := func() {
 		stopChan <- struct{}{}
 	}
 
+	// Create a unique identifier based off of hostname and UUID
 	id, err := os.Hostname()
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
-
-	// Reference for setup:
-	// https://github.com/kubernetes/kubernetes/blob/dce1b881284a103909f5cfa969ff56e5e0565362/cmd/cloud-controller-manager/app/controllermanager.go#L157-L190
 	id = id + "_" + uuid.UUID()
 	broadcaster := record.NewBroadcaster()
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{})
@@ -135,14 +134,11 @@ func main() {
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
-
-	// Set up leader election
 	logger.Info("Setting up leader election")
 	callbacks := leaderelection.LeaderCallbacks{
 		OnStartedLeading: run,
 		OnStoppedLeading: stop,
 	}
-
 	config := leaderelection.LeaderElectionConfig{
 		Callbacks:     callbacks,
 		Lock:          lock,
@@ -150,7 +146,6 @@ func main() {
 		RenewDeadline: 30 * time.Second,
 		RetryPeriod:   5 * time.Second,
 	}
-
 	leaderelection.RunOrDie(config)
 }
 
