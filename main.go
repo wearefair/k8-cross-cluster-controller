@@ -91,11 +91,12 @@ func main() {
 	go controller.ServiceTransformer(intermediaryServiceReaderChan, localServiceWriterChan)
 	go controller.EndpointsTransformer(intermediaryEndpointsReaderChan, localEndpointsWriterChan)
 
-	stopChan := make(chan<- struct{})
 	filter := func(options *metav1.ListOptions) {
 		options.LabelSelector = k8.CrossClusterLabel
 	}
 
+	logger.Info("Setting up service/endpoints cleaner")
+	cleaner := controller.NewCleaner(localClient, remoteClient, localEndpointsWriterChan, localServiceWriterChan)
 	// Set up leader election callback funcs
 	// Reference for leader election setup:
 	// https://github.com/kubernetes/kubernetes/blob/dce1b881284a103909f5cfa969ff56e5e0565362/cmd/cloud-controller-manager/app/controllermanager.go#L157-L190
@@ -104,12 +105,7 @@ func main() {
 		k8.WatchEndpoints(remoteClient, remoteEndpointsReader, filter, stopChan)
 		k8.WatchServices(remoteClient, remoteServiceReader, filter, stopChan)
 
-		logger.Info("Setting up service/endpoints cleaner")
-		cleaner := controller.NewCleaner(localClient, remoteClient, localEndpointsWriterChan, localServiceWriterChan)
 		go cleaner.Run(stopChan)
-	}
-	stop := func() {
-		stopChan <- struct{}{}
 	}
 
 	// Create a unique identifier based off of hostname and UUID
@@ -136,7 +132,6 @@ func main() {
 	logger.Info("Setting up leader election")
 	callbacks := leaderelection.LeaderCallbacks{
 		OnStartedLeading: run,
-		OnStoppedLeading: stop,
 	}
 	config := leaderelection.LeaderElectionConfig{
 		Callbacks:     callbacks,
