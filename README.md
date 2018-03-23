@@ -21,3 +21,10 @@ Example steps:
 - Cross cluster controller B will create a Service Foo on Cluster B with the same set of endpoints as Service A.
 - Service Foo is deleted from Cluster B.
 - Cross cluster controller B will delete Service Foo in Cluster B.
+
+## Running Locally
+The controller can run in development mode, which will run using the default kubeconfig file ($HOME/.kube/config). This flag can be set by setting the DEV_MODE var to true.
+```
+export DEV_MODE=true
+go run main.go
+```

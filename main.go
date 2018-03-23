@@ -66,7 +66,7 @@ func main() {
 		logger.Fatal(err.Error())
 	}
 
-	logger.Info("Setting up local readers and writers")
+	logger.Info("Setting up local writers")
 	localServiceWriterChan := make(chan *k8.ServiceRequest)
 	localEndpointsWriterChan := make(chan *k8.EndpointsRequest)
 	localEndpointsWriter := k8.NewEndpointsWriter(localClient, localEndpointsWriterChan)

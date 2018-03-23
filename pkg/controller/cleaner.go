@@ -7,8 +7,9 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/k8"
-	"github.com/wearefair/service-kit-go/errors"
+	ferrors "github.com/wearefair/service-kit-go/errors"
 	"github.com/wearefair/service-kit-go/logging"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,8 +24,9 @@ var (
 	logger = logging.Logger()
 )
 
-// Cleaner just looks for any orphaned local services and endpoints and sends requests to
-// the local writers to clean them up
+// Cleaner looks for orphaned services/endpoints on the local side and sends requests to delete them.
+// A service/endpoint is considered an orphan if it's no longer existing on the remote side, but somehow still exists
+// on the local side
 type Cleaner struct {
 	LocalClient    kubernetes.Interface
 	RemoteClient   kubernetes.Interface
@@ -51,34 +53,37 @@ func (c *Cleaner) Run(stopChan <-chan struct{}) {
 		case <-ticker:
 			// If there is a service that's local that no longer exists on remote side, send a deletion event
 			services := c.listLocalServices()
-			if services != nil {
-				for _, service := range services {
-					_, err := c.RemoteClient.CoreV1().Services(service.ObjectMeta.Namespace).Get(service.Name, metav1.GetOptions{})
-					// If err != nil, likely svc doesn't exist, so delete it?
-					if err != nil {
-						logger.Warn("Error retrieving remote service, likely it doesn't exist, deleting", zap.Error(err), zap.String("service", service.Name))
+			for _, service := range services {
+				_, err := c.RemoteClient.CoreV1().Services(service.ObjectMeta.Namespace).Get(service.Name, metav1.GetOptions{})
+				if err != nil {
+					if errors.IsGone(err) || errors.NotFound(err) {
+						logger.Info("Deleting remote service", zap.Error(err), zap.String("service", service.Name))
 						// Send down channel to delete
 						req := &k8.ServiceRequest{
 							Type:    k8.RequestTypeDelete,
 							Service: &service,
 						}
 						c.ServiceWriter <- req
+					} else {
+						ferrors.Error(context.Background(), err)
 					}
 				}
 			}
 			// If there is an endpoint that exists on local side, but no longer on remote side, send a deletion event
 			endpoints := c.listLocalEndpoints()
-			if endpoints != nil {
-				for _, endpoint := range endpoints {
-					_, err := c.RemoteClient.CoreV1().Endpoints(endpoint.ObjectMeta.Namespace).Get(endpoint.Name, metav1.GetOptions{})
-					if err != nil {
-						logger.Warn("Error retrieving remote endpoint, likely it doesn't exist, deleting", zap.Error(err), zap.String("endpoint", endpoint.Name))
+			for _, endpoint := range endpoints {
+				_, err := c.RemoteClient.CoreV1().Endpoints(endpoint.ObjectMeta.Namespace).Get(endpoint.Name, metav1.GetOptions{})
+				if err != nil {
+					if errors.IsGone(err) || errors.NotFound(err) {
+						logger.Info("Deleting remote endpoint", zap.Error(err), zap.String("endpoint", endpoint.Name))
 						// Send down channel to delete
 						req := &k8.EndpointsRequest{
 							Type:      k8.RequestTypeDelete,
 							Endpoints: &endpoint,
 						}
 						c.EndpointWriter <- req
+					} else {
+						ferrors.Error(context.Background(), err)
 					}
 				}
 			}
@@ -93,8 +98,8 @@ func (c *Cleaner) listLocalEndpoints() []v1.Endpoints {
 	}
 	list, err := c.LocalClient.CoreV1().Endpoints(metav1.NamespaceAll).List(opts)
 	if err != nil {
-		errors.Error(context.Background(), err)
-		return nil
+		ferrors.Error(context.Background(), err)
+		return []v1.Endpoints{}
 	}
 	return list.Items
 }
@@ -107,8 +112,8 @@ func (c *Cleaner) listLocalServices() []v1.Service {
 	list, err := c.LocalClient.CoreV1().Services(metav1.NamespaceAll).List(opts)
 	// If there's an error, we want to report it, but we don't necessarily need to propagate it
 	if err != nil {
-		errors.Error(context.Background(), err)
-		return nil
+		ferrors.Error(context.Background(), err)
+		return []v1.Service{}
 	}
 	return list.Items
 }

@@ -12,7 +12,7 @@ import (
 )
 
 // ServiceAugmenter takes a K8 client and two service channels. On a service update from the remote side, it'll augment the request by
-// adding in a local version of the service and then pass it down to the next channel
+// adding in a local version of the service and then pass it down to the transformer channel
 func ServiceAugmenter(localClient kubernetes.Interface, remoteServiceReader, intermediaryServiceReader chan *k8.ServiceRequest) {
 	for {
 		req := <-remoteServiceReader
@@ -29,7 +29,9 @@ func ServiceAugmenter(localClient kubernetes.Interface, remoteServiceReader, int
 	}
 }
 
-// ServiceTransformer reads from a service channel and whitelists
+// ServiceTransformer reads from a service channel and filters service metadata and spec that we don't
+// want propagated from the remote cluster to the local cluster, and passes it onto the local writer for
+// resource creation
 func ServiceTransformer(intermediaryServiceReader, localServiceWriter chan *k8.ServiceRequest) {
 	for {
 		req := <-intermediaryServiceReader
@@ -43,6 +45,8 @@ func ServiceTransformer(intermediaryServiceReader, localServiceWriter chan *k8.S
 	}
 }
 
+// serviceWhitelist allows only the fields that we want to allow to be copied over. Metadata such as UID and
+// resourceVersion cannot be propagated from one K8 cluster to another on creates/updates
 func serviceWhitelist(oldSvc, newSvc *v1.Service) *v1.Service {
 	newSvc.ObjectMeta.Name = oldSvc.ObjectMeta.Name
 	newSvc.ObjectMeta.Namespace = oldSvc.ObjectMeta.Namespace
@@ -53,6 +57,8 @@ func serviceWhitelist(oldSvc, newSvc *v1.Service) *v1.Service {
 	return newSvc
 }
 
+// EndpointsAugmenter takes a K8 client and two endpoints channels. On an endpoint update from the remote side, it'll augment the request by
+// adding in a local version of the endpoint and then pass it down to the transformer channel
 func EndpointsAugmenter(localClient kubernetes.Interface, remoteEndpointsReader, intermediaryEndpointsReader chan *k8.EndpointsRequest) {
 	for {
 		req := <-remoteEndpointsReader
@@ -69,7 +75,9 @@ func EndpointsAugmenter(localClient kubernetes.Interface, remoteEndpointsReader,
 	}
 }
 
-// We don't really need to care about OnAdd events
+// EndpointsTransformer reads from an endpoints channel and filters endpoints metadata and spec that we don't
+// want propagated from the remote cluster to the local cluster, and passes it onto the local writer for
+// resource creation
 func EndpointsTransformer(intermediaryEndpointsReader, localEndpointsWriter chan *k8.EndpointsRequest) {
 	for {
 		req := <-intermediaryEndpointsReader
@@ -83,6 +91,8 @@ func EndpointsTransformer(intermediaryEndpointsReader, localEndpointsWriter chan
 	}
 }
 
+// endpointsWhitelist allows only the fields that we want to be copied over. Metadata such as UID and
+// resourceVersion cannot be propagated from one K8 cluster to another on creates/updates
 func endpointsWhitelist(oldEndpoints, newEndpoints *v1.Endpoints) *v1.Endpoints {
 	newEndpoints.ObjectMeta.Name = oldEndpoints.ObjectMeta.Name
 	newEndpoints.ObjectMeta.Namespace = oldEndpoints.ObjectMeta.Namespace
