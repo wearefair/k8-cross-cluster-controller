@@ -41,7 +41,8 @@ func NewCleaner(localClient, remoteClient kubernetes.Interface, endpointWriter c
 	}
 }
 
-func (c *Cleaner) Run(stopChan chan struct{}) {
+// TODO: Stop when message is sent over stop channel
+func (c *Cleaner) Run(stopChan <-chan struct{}) {
 	for {
 		// If there is a service that's local that no longer exists on remote side, delete it
 		services := c.listLocalServices()
@@ -76,7 +77,6 @@ func (c *Cleaner) Run(stopChan chan struct{}) {
 				}
 			}
 		}
-		time.Sleep(defaultSleepTime)
 	}
 }
 
