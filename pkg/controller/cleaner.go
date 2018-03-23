@@ -41,39 +41,45 @@ func NewCleaner(localClient, remoteClient kubernetes.Interface, endpointWriter c
 	}
 }
 
-// TODO: Stop when message is sent over stop channel
 func (c *Cleaner) Run(stopChan <-chan struct{}) {
+	ticker := time.NewTicker(defaultSleepTime).C
 	for {
-		// If there is a service that's local that no longer exists on remote side, delete it
-		services := c.listLocalServices()
-		if services != nil {
-			for _, service := range services {
-				_, err := c.RemoteClient.CoreV1().Services(service.ObjectMeta.Namespace).Get(service.Name, metav1.GetOptions{})
-				// If err != nil, likely svc doesn't exist, so delete it?
-				if err != nil {
-					logger.Warn("Error retrieving remote service, likely it doesn't exist, deleting...", zap.Error(err), zap.String("service", service.Name))
-					// Send down channel to delete
-					req := &k8.ServiceRequest{
-						Type:    k8.RequestTypeDelete,
-						Service: &service,
+		select {
+		case <-stopChan:
+			logger.Info("Received stopped signal. Stopping clean")
+			return
+		case <-ticker:
+			// If there is a service that's local that no longer exists on remote side, send a deletion event
+			services := c.listLocalServices()
+			if services != nil {
+				for _, service := range services {
+					_, err := c.RemoteClient.CoreV1().Services(service.ObjectMeta.Namespace).Get(service.Name, metav1.GetOptions{})
+					// If err != nil, likely svc doesn't exist, so delete it?
+					if err != nil {
+						logger.Warn("Error retrieving remote service, likely it doesn't exist, deleting", zap.Error(err), zap.String("service", service.Name))
+						// Send down channel to delete
+						req := &k8.ServiceRequest{
+							Type:    k8.RequestTypeDelete,
+							Service: &service,
+						}
+						c.ServiceWriter <- req
 					}
-					c.ServiceWriter <- req
 				}
 			}
-		}
-		// If there is an endpoint that exists on local side, but no longer on remote side, delete it
-		endpoints := c.listLocalEndpoints()
-		if endpoints != nil {
-			for _, endpoint := range endpoints {
-				_, err := c.RemoteClient.CoreV1().Endpoints(endpoint.ObjectMeta.Namespace).Get(endpoint.Name, metav1.GetOptions{})
-				if err != nil {
-					logger.Warn("Error retrieving remote endpoint, likely it doesn't exist, deleting...", zap.Error(err), zap.String("endpoint", endpoint.Name))
-					// Send down channel to delete
-					req := &k8.EndpointsRequest{
-						Type:      k8.RequestTypeDelete,
-						Endpoints: &endpoint,
+			// If there is an endpoint that exists on local side, but no longer on remote side, send a deletion event
+			endpoints := c.listLocalEndpoints()
+			if endpoints != nil {
+				for _, endpoint := range endpoints {
+					_, err := c.RemoteClient.CoreV1().Endpoints(endpoint.ObjectMeta.Namespace).Get(endpoint.Name, metav1.GetOptions{})
+					if err != nil {
+						logger.Warn("Error retrieving remote endpoint, likely it doesn't exist, deleting", zap.Error(err), zap.String("endpoint", endpoint.Name))
+						// Send down channel to delete
+						req := &k8.EndpointsRequest{
+							Type:      k8.RequestTypeDelete,
+							Endpoints: &endpoint,
+						}
+						c.EndpointWriter <- req
 					}
-					c.EndpointWriter <- req
 				}
 			}
 		}

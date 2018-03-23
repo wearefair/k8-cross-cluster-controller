@@ -14,6 +14,7 @@ import (
 	"github.com/wearefair/service-kit-go/uuid"
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/leaderelection"
@@ -21,7 +22,6 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -121,7 +121,7 @@ func main() {
 	// https://github.com/kubernetes/kubernetes/blob/dce1b881284a103909f5cfa969ff56e5e0565362/cmd/cloud-controller-manager/app/controllermanager.go#L157-L190
 	id = id + "_" + uuid.UUID()
 	broadcaster := record.NewBroadcaster()
-	recorder := broadcaster.NewRecorder(runtime.NewScheme(), v1.EventSource{})
+	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{})
 	lock, err := resourcelock.New(
 		resourcelock.EndpointsResourceLock,
 		metav1.NamespaceDefault,
@@ -135,13 +135,6 @@ func main() {
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
-
-	// Terminate watchers on SIGINT
-	//	signalChan := make(chan os.Signal, 1)
-	//	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
-	//	<-signalChan
-	//	logger.Info("Shutting down")
-	//	close(stopChan)
 
 	// Set up leader election
 	logger.Info("Setting up leader election")
