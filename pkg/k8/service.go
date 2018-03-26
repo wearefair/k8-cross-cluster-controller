@@ -42,8 +42,8 @@ func (s *ServiceReader) sendRequest(obj interface{}, requestType RequestType) {
 	service := obj.(*v1.Service)
 	logger.Info("Sending service request", zap.String("requestType", RequestTypeMap[requestType]), zap.String("name", service.Name))
 	req := &ServiceRequest{
-		Type:    requestType,
-		Service: service,
+		Type:          requestType,
+		RemoteService: service,
 	}
 	s.Events <- req
 }
@@ -84,11 +84,11 @@ func (s *ServiceWriter) Run() {
 		request := <-s.Events
 		switch request.Type {
 		case RequestTypeAdd:
-			s.add(request.Service)
+			s.add(request.LocalService)
 		case RequestTypeUpdate:
-			s.update(request.Service)
+			s.update(request.LocalService)
 		case RequestTypeDelete:
-			s.delete(request.Service)
+			s.delete(request.LocalService)
 		}
 	}
 }

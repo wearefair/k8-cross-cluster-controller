@@ -1,4 +1,4 @@
-package controller
+package cleaner
 
 import (
 	"context"
@@ -34,7 +34,7 @@ type Cleaner struct {
 	ServiceWriter  chan *k8.ServiceRequest
 }
 
-func NewCleaner(localClient, remoteClient kubernetes.Interface, endpointWriter chan *k8.EndpointsRequest, serviceWriter chan *k8.ServiceRequest) *Cleaner {
+func New(localClient, remoteClient kubernetes.Interface, endpointWriter chan *k8.EndpointsRequest, serviceWriter chan *k8.ServiceRequest) *Cleaner {
 	return &Cleaner{
 		LocalClient:    localClient,
 		RemoteClient:   remoteClient,
@@ -43,7 +43,9 @@ func NewCleaner(localClient, remoteClient kubernetes.Interface, endpointWriter c
 	}
 }
 
-func (c *Cleaner) Run(stopChan <-chan struct{}) {
+func (c *Cleaner) Run(stopChan <-chan struct{}, filter func(options *metav1.ListOptions)) {
+	opts := &metav1.ListOptions{}
+	filter(opts)
 	ticker := time.NewTicker(defaultSleepTime).C
 	for {
 		select {
@@ -52,16 +54,16 @@ func (c *Cleaner) Run(stopChan <-chan struct{}) {
 			return
 		case <-ticker:
 			// If there is a service that's local that no longer exists on remote side, send a deletion event
-			services := c.listLocalServices()
+			services := c.listLocalServices(*opts)
 			for _, service := range services {
 				_, err := c.RemoteClient.CoreV1().Services(service.ObjectMeta.Namespace).Get(service.Name, metav1.GetOptions{})
 				if err != nil {
-					if errors.IsGone(err) || errors.NotFound(err) {
+					if k8ResourceDoesNotExist(err) {
 						logger.Info("Deleting remote service", zap.Error(err), zap.String("service", service.Name))
 						// Send down channel to delete
 						req := &k8.ServiceRequest{
-							Type:    k8.RequestTypeDelete,
-							Service: &service,
+							Type:          k8.RequestTypeDelete,
+							RemoteService: &service,
 						}
 						c.ServiceWriter <- req
 					} else {
@@ -70,16 +72,16 @@ func (c *Cleaner) Run(stopChan <-chan struct{}) {
 				}
 			}
 			// If there is an endpoint that exists on local side, but no longer on remote side, send a deletion event
-			endpoints := c.listLocalEndpoints()
+			endpoints := c.listLocalEndpoints(*opts)
 			for _, endpoint := range endpoints {
 				_, err := c.RemoteClient.CoreV1().Endpoints(endpoint.ObjectMeta.Namespace).Get(endpoint.Name, metav1.GetOptions{})
 				if err != nil {
-					if errors.IsGone(err) || errors.NotFound(err) {
+					if k8ResourceDoesNotExist(err) {
 						logger.Info("Deleting remote endpoint", zap.Error(err), zap.String("endpoint", endpoint.Name))
 						// Send down channel to delete
 						req := &k8.EndpointsRequest{
-							Type:      k8.RequestTypeDelete,
-							Endpoints: &endpoint,
+							Type:            k8.RequestTypeDelete,
+							RemoteEndpoints: &endpoint,
 						}
 						c.EndpointWriter <- req
 					} else {
@@ -91,11 +93,12 @@ func (c *Cleaner) Run(stopChan <-chan struct{}) {
 	}
 }
 
+func k8ResourceDoesNotExist(err error) bool {
+	return (errors.IsGone(err) || errors.IsNotFound(err))
+}
+
 // Lists all endpoints that are local with the cross cluster label
-func (c *Cleaner) listLocalEndpoints() []v1.Endpoints {
-	opts := metav1.ListOptions{
-		LabelSelector: k8.CrossClusterLabel,
-	}
+func (c *Cleaner) listLocalEndpoints(opts metav1.ListOptions) []v1.Endpoints {
 	list, err := c.LocalClient.CoreV1().Endpoints(metav1.NamespaceAll).List(opts)
 	if err != nil {
 		ferrors.Error(context.Background(), err)
@@ -105,10 +108,7 @@ func (c *Cleaner) listLocalEndpoints() []v1.Endpoints {
 }
 
 // List all services that are local with the cross cluster label
-func (c *Cleaner) listLocalServices() []v1.Service {
-	opts := metav1.ListOptions{
-		LabelSelector: k8.CrossClusterLabel,
-	}
+func (c *Cleaner) listLocalServices(opts metav1.ListOptions) []v1.Service {
 	list, err := c.LocalClient.CoreV1().Services(metav1.NamespaceAll).List(opts)
 	// If there's an error, we want to report it, but we don't necessarily need to propagate it
 	if err != nil {

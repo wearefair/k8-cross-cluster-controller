@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/wearefair/k8-cross-cluster-controller/pkg/cleaner"
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/controller"
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/k8"
-	"github.com/wearefair/k8-cross-cluster-controller/pkg/utils"
 	ferrors "github.com/wearefair/service-kit-go/errors"
 	"github.com/wearefair/service-kit-go/logging"
 	"github.com/wearefair/service-kit-go/uuid"
@@ -25,13 +25,16 @@ import (
 )
 
 const (
+	EnvDevMode                  = "DEV_MODE"
 	EnvKubeConfigPath           = "KUBECONFIG_PATH"
+	fairSystemK8Namespace       = "fair-system"
 	leaderElectionLeaseDuration = 1 * time.Minute
 	leaderElectionRenewDeadline = 30 * time.Second
 	leaderElectionRetryPeriod   = 5 * time.Second
 )
 
 var (
+	devMode    string
 	kubeconfig string
 	// These are only set and used when the controller is running in dev mode
 	localContext  string
@@ -41,6 +44,7 @@ var (
 
 func main() {
 	flag.StringVar(&kubeconfig, "kubeconfig", os.Getenv(EnvKubeConfigPath), "Path to kubeconfig for remote cluster")
+	flag.StringVar(&devMode, "devMode", os.Getenv(EnvDevMode), "Dev mode flag")
 	flag.StringVar(&localContext, "local-context", "prototype-general", "DEV MODE: Context override for the local cluster. Defaults to prototype-general")
 	flag.StringVar(&remoteContext, "remote-context", "prototype-secure", "DEV MODE: Context override for the remote cluster. Defaults to prototype-secure")
 	flag.Parse()
@@ -96,7 +100,7 @@ func main() {
 	}
 
 	logger.Info("Setting up service/endpoints cleaner")
-	cleaner := controller.NewCleaner(localClient, remoteClient, localEndpointsWriterChan, localServiceWriterChan)
+	cleaner := cleaner.New(localClient, remoteClient, localEndpointsWriterChan, localServiceWriterChan)
 	// Set up leader election callback funcs
 	// Reference for leader election setup:
 	// https://github.com/kubernetes/kubernetes/blob/dce1b881284a103909f5cfa969ff56e5e0565362/cmd/cloud-controller-manager/app/controllermanager.go#L157-L190
@@ -105,7 +109,7 @@ func main() {
 		k8.WatchEndpoints(remoteClient, remoteEndpointsReader, filter, stopChan)
 		k8.WatchServices(remoteClient, remoteServiceReader, filter, stopChan)
 
-		go cleaner.Run(stopChan)
+		go cleaner.Run(stopChan, filter)
 	}
 
 	// Create a unique identifier based off of hostname and UUID
@@ -118,7 +122,7 @@ func main() {
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{})
 	lock, err := resourcelock.New(
 		resourcelock.EndpointsResourceLock,
-		metav1.NamespaceDefault,
+		fairSystemK8Namespace,
 		"cross-cluster-controller",
 		localClient.CoreV1(),
 		resourcelock.ResourceLockConfig{
@@ -150,7 +154,7 @@ func main() {
 func setupLocalConfig() (*rest.Config, error) {
 	var conf *rest.Config
 	var err error
-	if utils.DevMode() {
+	if devModeEnabled() {
 		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 		configOverrides := &clientcmd.ConfigOverrides{
 			CurrentContext: localContext,
@@ -178,7 +182,7 @@ func setupRemoteConfig(remoteConfPath string) (*rest.Config, error) {
 		loadingRules.ExplicitPath = remoteConfPath
 	}
 	configOverrides := &clientcmd.ConfigOverrides{}
-	if utils.DevMode() {
+	if devModeEnabled() {
 		configOverrides.CurrentContext = remoteContext
 	}
 	remoteKubeConf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
@@ -187,4 +191,11 @@ func setupRemoteConfig(remoteConfPath string) (*rest.Config, error) {
 		return nil, ferrors.Error(context.Background(), err)
 	}
 	return remoteConf, nil
+}
+
+func devModeEnabled() bool {
+	if devMode == "true" {
+		return true
+	}
+	return false
 }

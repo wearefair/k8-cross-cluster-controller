@@ -29,13 +29,13 @@ var (
 type RequestType int
 
 type ServiceRequest struct {
-	Type         RequestType
-	Service      *v1.Service
-	LocalService *v1.Service
+	Type          RequestType
+	RemoteService *v1.Service
+	LocalService  *v1.Service
 }
 
 type EndpointsRequest struct {
-	Type           RequestType
-	Endpoints      *v1.Endpoints
-	LocalEndpoints *v1.Endpoints
+	Type            RequestType
+	RemoteEndpoints *v1.Endpoints
+	LocalEndpoints  *v1.Endpoints
 }

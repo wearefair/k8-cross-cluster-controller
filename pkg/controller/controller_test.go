@@ -103,9 +103,9 @@ func TestServiceWhitelist(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		out := serviceWhitelist(originalSvc, testCase.NewService)
-		if !reflect.DeepEqual(out, testCase.Expected) {
-			t.Errorf("Expected: %+v\ngot: %+v", testCase.Expected, out)
+		serviceWhitelist(originalSvc, testCase.NewService)
+		if !reflect.DeepEqual(testCase.NewService, testCase.Expected) {
+			t.Errorf("Expected: %+v\ngot: %+v", testCase.Expected, originalSvc)
 		}
 	}
 }
@@ -212,9 +212,9 @@ func TestEndpointsWhitelist(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		out := endpointsWhitelist(originalEndpoints, testCase.NewEndpoints)
-		if !reflect.DeepEqual(out, testCase.Expected) {
-			t.Errorf("Expected endpoints %+v\ngot: %+v", testCase.Expected, out)
+		endpointsWhitelist(originalEndpoints, testCase.NewEndpoints)
+		if !reflect.DeepEqual(testCase.NewEndpoints, testCase.Expected) {
+			t.Errorf("Expected endpoints %+v\ngot: %+v", testCase.Expected, originalEndpoints)
 		}
 	}
 }

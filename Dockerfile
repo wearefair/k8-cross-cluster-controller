@@ -5,6 +5,7 @@ ARG GITHUB_OAUTH_TOKEN
 WORKDIR /go/src/github.com/wearefair/k8-cross-cluster-controller
 RUN mkdir /dist
 COPY . .
+RUN dep ensure -v
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /dist/cross-cluster-controller-linux-x86
 
 FROM scratch

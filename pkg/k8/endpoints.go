@@ -43,8 +43,8 @@ func (e *EndpointsReader) sendRequest(obj interface{}, requestType RequestType) 
 	endpoints := obj.(*v1.Endpoints)
 	logger.Info("Sending endpoints request", zap.String("requestType", RequestTypeMap[requestType]), zap.String("name", endpoints.Name))
 	req := &EndpointsRequest{
-		Type:      requestType,
-		Endpoints: endpoints,
+		Type:            requestType,
+		RemoteEndpoints: endpoints,
 	}
 	e.Events <- req
 }
@@ -85,11 +85,11 @@ func (e *EndpointsWriter) Run() {
 		request := <-e.Events
 		switch request.Type {
 		case RequestTypeAdd:
-			e.add(request.Endpoints)
+			e.add(request.LocalEndpoints)
 		case RequestTypeUpdate:
-			e.update(request.Endpoints)
+			e.update(request.LocalEndpoints)
 		case RequestTypeDelete:
-			e.delete(request.Endpoints)
+			e.delete(request.LocalEndpoints)
 		}
 	}
 }

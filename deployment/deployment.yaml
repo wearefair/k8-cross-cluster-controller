@@ -1,3 +1,4 @@
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -10,6 +11,7 @@ spec:
       labels:
         app: cross-cluster-controller
     spec:
+      serviceAccountName: cross-cluster-controller
       containers:
         - name: cross-cluster-controller
           image: 889883130442.dkr.ecr.us-west-2.amazonaws.com/k8-cross-cluster-controller:${IMAGE_TAG}
