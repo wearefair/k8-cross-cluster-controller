@@ -116,7 +116,7 @@ func (c *Cleaner) listLocalServices() []v1.Service {
 	return list.Items
 }
 
-// Lists all services that are remote with the cross cluster label by alphabetical order of name
+// Lists all services that are remote with the cross cluster label
 func (c *Cleaner) listRemoteServices() []v1.Service {
 	opts := &metav1.ListOptions{}
 	k8.RemoteFilter(opts)
@@ -130,6 +130,7 @@ func (c *Cleaner) listRemoteServices() []v1.Service {
 	return list.Items
 }
 
+// Lists all endpoints that are remote with the cross cluster label
 func (c *Cleaner) listRemoteEndpoints() []v1.Endpoints {
 	opts := &metav1.ListOptions{}
 	k8.RemoteFilter(opts)
