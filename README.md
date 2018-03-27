@@ -23,8 +23,12 @@ Example steps:
 - Cross cluster controller B will delete Service Foo in Cluster B.
 
 ## Running Locally
-The controller can run in development mode, which will run using the default kubeconfig file ($HOME/.kube/config). This flag can be set by setting the DEV_MODE var to true.
+The controller can run in development mode, which will run using the default kubeconfig file ($HOME/.kube/config). This flag can be set by setting the DEV_MODE var to true or by passing in the flag.
+
 ```
 export DEV_MODE=true
 go run main.go
+
+# OR
+go run main.go --devmode=true
 ```

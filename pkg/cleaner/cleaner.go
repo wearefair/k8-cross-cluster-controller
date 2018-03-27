@@ -100,6 +100,7 @@ func k8ResourceDoesNotExist(err error) bool {
 // Lists all endpoints that are local with the cross cluster label
 func (c *Cleaner) listLocalEndpoints(opts metav1.ListOptions) []v1.Endpoints {
 	list, err := c.LocalClient.CoreV1().Endpoints(metav1.NamespaceAll).List(opts)
+	// If there's an error, we want to report it, but we don't necessarily need to propagate it
 	if err != nil {
 		ferrors.Error(context.Background(), err)
 		return []v1.Endpoints{}
