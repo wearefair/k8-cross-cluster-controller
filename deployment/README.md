@@ -1,7 +1,7 @@
 # Deploying with Secret File
 In order for the controller to run and access a remote cluster, it needs to be able to mount a secret file with the remote kubeconfig settings. 
 
-First, apply the serviceaccount.yaml to both clusters. 
+First, apply the serviceaccount.yaml to both clusters (NOTE: this will create two service accounts per cluster, 1 for local, 1 for remote "read only" access). 
 
 `kubectl create -f serviceaccount.yaml`
 

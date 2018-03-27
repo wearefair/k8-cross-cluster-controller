@@ -27,6 +27,7 @@ import (
 const (
 	EnvDevMode                  = "DEV_MODE"
 	EnvKubeConfigPath           = "KUBECONFIG_PATH"
+	channelBufferCount          = 4
 	controllerName              = "cross-cluster-controller"
 	fairSystemK8Namespace       = "fair-system"
 	leaderElectionLeaseDuration = 1 * time.Minute
@@ -72,16 +73,16 @@ func main() {
 	}
 
 	logger.Info("Setting up local writers")
-	localServiceWriterChan := make(chan *k8.ServiceRequest, 4)
-	localEndpointsWriterChan := make(chan *k8.EndpointsRequest, 4)
+	localServiceWriterChan := make(chan *k8.ServiceRequest, channelBufferCount)
+	localEndpointsWriterChan := make(chan *k8.EndpointsRequest, channelBufferCount)
 	localServiceWriter := k8.NewServiceWriter(localClient, localServiceWriterChan)
 	localEndpointsWriter := k8.NewEndpointsWriter(localClient, localEndpointsWriterChan)
 	go localServiceWriter.Run()
 	go localEndpointsWriter.Run()
 
 	logger.Info("Setting up remote readers")
-	remoteServiceReaderChan := make(chan *k8.ServiceRequest, 4)
-	remoteEndpointsReaderChan := make(chan *k8.EndpointsRequest, 4)
+	remoteServiceReaderChan := make(chan *k8.ServiceRequest, channelBufferCount)
+	remoteEndpointsReaderChan := make(chan *k8.EndpointsRequest, channelBufferCount)
 	remoteServiceReader := k8.NewServiceReader(remoteServiceReaderChan)
 	remoteEndpointsReader := k8.NewEndpointsReader(remoteEndpointsReaderChan)
 

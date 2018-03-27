@@ -16,8 +16,8 @@ const (
 	RequestTypeDelete
 
 	CrossClusterServiceLabelKey         = "fair.com/cross-cluster"
-	CrossClusterServiceLocalLabelValue  = "replicated"
-	CrossClusterServiceRemoteLabelValue = "replicate"
+	CrossClusterServiceLocalLabelValue  = "follower"
+	CrossClusterServiceRemoteLabelValue = "true"
 )
 
 var (

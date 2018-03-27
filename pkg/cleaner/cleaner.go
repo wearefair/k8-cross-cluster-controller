@@ -59,10 +59,7 @@ func (c *Cleaner) Run(stopChan <-chan struct{}) {
 
 func (c *Cleaner) cleanOrphanedServices(localServices, remoteServices []v1.Service) {
 	for _, localService := range localServices {
-		for _, remoteService := range remoteServices {
-			if resourceExists(localService.ObjectMeta, remoteService.ObjectMeta) {
-				continue
-			}
+		if exists := c.checkServiceExists(localService, remoteServices); !exists {
 			req := &k8.ServiceRequest{
 				Type:         k8.RequestTypeDelete,
 				LocalService: &localService,
@@ -72,12 +69,18 @@ func (c *Cleaner) cleanOrphanedServices(localServices, remoteServices []v1.Servi
 	}
 }
 
+func (c *Cleaner) checkServiceExists(localService v1.Service, remoteServices []v1.Service) bool {
+	for _, remoteService := range remoteServices {
+		if (remoteService.ObjectMeta.Namespace == localService.ObjectMeta.Namespace) && (localService.Name == remoteService.Name) {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Cleaner) cleanOrphanedEndpoints(localEndpoints, remoteEndpoints []v1.Endpoints) {
 	for _, localEndpoint := range localEndpoints {
-		for _, remoteEndpoint := range remoteEndpoints {
-			if resourceExists(localEndpoint.ObjectMeta, remoteEndpoint.ObjectMeta) {
-				continue
-			}
+		if exists := c.checkEndpointsExists(localEndpoint, remoteEndpoints); !exists {
 			req := &k8.EndpointsRequest{
 				Type:           k8.RequestTypeDelete,
 				LocalEndpoints: &localEndpoint,
@@ -87,9 +90,13 @@ func (c *Cleaner) cleanOrphanedEndpoints(localEndpoints, remoteEndpoints []v1.En
 	}
 }
 
-// If a K8 resource's namespace and name are the same, likely they're equivalent
-func resourceExists(localMeta, remoteMeta metav1.ObjectMeta) bool {
-	return (localMeta.Namespace == remoteMeta.Namespace) && (localMeta.Name == remoteMeta.Name)
+func (c *Cleaner) checkEndpointsExists(localEndpoint v1.Endpoints, remoteEndpoints []v1.Endpoints) bool {
+	for _, remoteEndpoint := range remoteEndpoints {
+		if (remoteEndpoint.ObjectMeta.Namespace == localEndpoint.ObjectMeta.Namespace) && (localEndpoint.Name == remoteEndpoint.Name) {
+			return true
+		}
+	}
+	return false
 }
 
 // Lists all endpoints that are local with the cross cluster label
