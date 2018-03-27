@@ -29,6 +29,7 @@ import (
 const (
 	EnvDevMode                  = "DEV_MODE"
 	EnvKubeConfigPath           = "KUBECONFIG_PATH"
+	controllerName              = "cross-cluster-controller"
 	fairSystemK8Namespace       = "fair-system"
 	leaderElectionLeaseDuration = 1 * time.Minute
 	leaderElectionRenewDeadline = 30 * time.Second
@@ -92,12 +93,12 @@ func main() {
 	go controller.EndpointsPipeline(remoteEndpointsReaderChan, localEndpointsWriterChan, augmenter.Endpoints, controller.EndpointsWhitelist)
 	go controller.ServicePipeline(remoteServiceReaderChan, localServiceWriterChan, augmenter.Service, controller.ServiceWhitelist)
 
+	logger.Info("Setting up service/endpoints cleaner")
 	filter := func(options *metav1.ListOptions) {
 		options.LabelSelector = k8.CrossClusterLabel
 	}
-
-	logger.Info("Setting up service/endpoints cleaner")
 	cleaner := cleaner.New(localClient, remoteClient, localEndpointsWriterChan, localServiceWriterChan)
+
 	// Set up leader election callback funcs
 	// Reference for leader election setup:
 	// https://github.com/kubernetes/kubernetes/blob/dce1b881284a103909f5cfa969ff56e5e0565362/cmd/cloud-controller-manager/app/controllermanager.go#L157-L190
@@ -105,11 +106,10 @@ func main() {
 		logger.Info("Setting up watchers")
 		k8.WatchEndpoints(remoteClient, remoteEndpointsReader, filter, stopChan)
 		k8.WatchServices(remoteClient, remoteServiceReader, filter, stopChan)
-
 		go cleaner.Run(stopChan, filter)
 	}
 
-	// Create a unique identifier based off of hostname and UUID
+	// Create a unique identifier for the controller based off of hostname and UUID
 	id, err := os.Hostname()
 	if err != nil {
 		logger.Fatal(err.Error())
@@ -120,7 +120,7 @@ func main() {
 	lock, err := resourcelock.New(
 		resourcelock.EndpointsResourceLock,
 		fairSystemK8Namespace,
-		"cross-cluster-controller",
+		controllerName,
 		localClient.CoreV1(),
 		resourcelock.ResourceLockConfig{
 			Identity:      id,

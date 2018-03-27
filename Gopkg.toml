@@ -6,6 +6,7 @@
   branch = "master"
   name = "k8s.io/apimachinery"
 
+# Need a higher version of client-go in order to get filtered watch lists
 [[constraint]]
   name = "k8s.io/client-go"
   branch = "release-7.0"

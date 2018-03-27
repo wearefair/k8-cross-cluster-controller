@@ -22,8 +22,10 @@ Example steps:
 - Service Foo is deleted from Cluster B.
 - Cross cluster controller B will delete Service Foo in Cluster B.
 
+The cross cluster controller also includes a cleaning job that runs every 5 minutes to clean up any orphaned services/endpoints on the local cluster side. This means cleaning up any services or endpoints that have been deleted from the other cluster that might not have been picked up by the controller.
+
 ## Running Locally
-The controller can run in development mode, which will run using the default kubeconfig file ($HOME/.kube/config). This flag can be set by setting the DEV_MODE var to true or by passing in the flag.
+The controller can run in development mode, which will run using the default kubeconfig file ($HOME/.kube/config). This flag can be set by setting the DEV_MODE var to true or by passing in the flag. You can also specify the local and remote cluster contexts via flags (they default to prototype-general and prototype-secure).
 
 ```
 export DEV_MODE=true
@@ -31,4 +33,14 @@ go run main.go
 
 # OR
 go run main.go --devmode=true
+
+# With contexts
+go run main.go --devmode=true --local-context=sandbox-general --remote-context=sandbox-secure
+
+# With a kubeconfig
+export KUBECONFIG_PATH=$HOME/.anotherkube/configpath
+go run main.go
+
+#OR 
+go run main.go --kubeconfig=$HOME/.anotherkube/configpath
 ```
