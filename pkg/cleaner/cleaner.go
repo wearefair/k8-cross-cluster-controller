@@ -62,13 +62,12 @@ func (c *Cleaner) cleanOrphanedServices(localServices, remoteServices []v1.Servi
 		for _, remoteService := range remoteServices {
 			if resourceExists(localService.ObjectMeta, remoteService.ObjectMeta) {
 				continue
-			} else {
-				req := &k8.ServiceRequest{
-					Type:         k8.RequestTypeDelete,
-					LocalService: &localService,
-				}
-				c.ServiceWriter <- req
 			}
+			req := &k8.ServiceRequest{
+				Type:         k8.RequestTypeDelete,
+				LocalService: &localService,
+			}
+			c.ServiceWriter <- req
 		}
 	}
 }
@@ -78,13 +77,12 @@ func (c *Cleaner) cleanOrphanedEndpoints(localEndpoints, remoteEndpoints []v1.En
 		for _, remoteEndpoint := range remoteEndpoints {
 			if resourceExists(localEndpoint.ObjectMeta, remoteEndpoint.ObjectMeta) {
 				continue
-			} else {
-				req := &k8.EndpointsRequest{
-					Type:           k8.RequestTypeDelete,
-					LocalEndpoints: &localEndpoint,
-				}
-				c.EndpointWriter <- req
 			}
+			req := &k8.EndpointsRequest{
+				Type:           k8.RequestTypeDelete,
+				LocalEndpoints: &localEndpoint,
+			}
+			c.EndpointWriter <- req
 		}
 	}
 }

@@ -41,7 +41,8 @@ func (e *EndpointsReader) Delete(obj interface{}) {
 
 func (e *EndpointsReader) sendRequest(obj interface{}, requestType RequestType) {
 	endpoints := obj.(*v1.Endpoints)
-	logger.Info("Sending endpoints request", zap.String("requestType", RequestTypeMap[requestType]), zap.String("name", endpoints.Name))
+	logger.Info("Sending endpoints request", zap.String("requestType", RequestTypeMap[requestType]),
+		zap.String("name", endpoints.Name), zap.String("namespace", endpoints.ObjectMeta.Namespace))
 	req := &EndpointsRequest{
 		Type:            requestType,
 		RemoteEndpoints: endpoints,
@@ -57,7 +58,8 @@ func NewEndpointsWriter(clientset kubernetes.Interface, events chan *EndpointsRe
 }
 
 func (e *EndpointsWriter) add(endpoints *v1.Endpoints) {
-	logger.Info("Creating endpoints", zap.String("name", endpoints.Name))
+	logger.Info("Creating endpoints", zap.String("name", endpoints.Name),
+		zap.String("namespace", endpoints.ObjectMeta.Namespace))
 	_, err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Create(endpoints)
 	if err != nil {
 		errors.Error(context.Background(), err)
@@ -65,7 +67,8 @@ func (e *EndpointsWriter) add(endpoints *v1.Endpoints) {
 }
 
 func (e *EndpointsWriter) update(endpoints *v1.Endpoints) {
-	logger.Info("Updating endpoints", zap.String("name", endpoints.Name))
+	logger.Info("Updating endpoints", zap.String("name", endpoints.Name),
+		zap.String("namespace", endpoints.ObjectMeta.Namespace))
 	_, err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Update(endpoints)
 	if err != nil {
 		errors.Error(context.Background(), err)
@@ -73,7 +76,8 @@ func (e *EndpointsWriter) update(endpoints *v1.Endpoints) {
 }
 
 func (e *EndpointsWriter) delete(endpoints *v1.Endpoints) {
-	logger.Info("Deleting endpoints", zap.String("name", endpoints.Name))
+	logger.Info("Deleting endpoints", zap.String("name", endpoints.Name),
+		zap.String("namespace", endpoints.ObjectMeta.Namespace))
 	err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Delete(endpoints.Name, &metav1.DeleteOptions{})
 	if err != nil {
 		errors.Error(context.Background(), err)

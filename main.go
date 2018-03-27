@@ -72,16 +72,16 @@ func main() {
 	}
 
 	logger.Info("Setting up local writers")
-	localServiceWriterChan := make(chan *k8.ServiceRequest)
-	localEndpointsWriterChan := make(chan *k8.EndpointsRequest)
+	localServiceWriterChan := make(chan *k8.ServiceRequest, 4)
+	localEndpointsWriterChan := make(chan *k8.EndpointsRequest, 4)
 	localServiceWriter := k8.NewServiceWriter(localClient, localServiceWriterChan)
 	localEndpointsWriter := k8.NewEndpointsWriter(localClient, localEndpointsWriterChan)
 	go localServiceWriter.Run()
 	go localEndpointsWriter.Run()
 
 	logger.Info("Setting up remote readers")
-	remoteServiceReaderChan := make(chan *k8.ServiceRequest)
-	remoteEndpointsReaderChan := make(chan *k8.EndpointsRequest)
+	remoteServiceReaderChan := make(chan *k8.ServiceRequest, 4)
+	remoteEndpointsReaderChan := make(chan *k8.EndpointsRequest, 4)
 	remoteServiceReader := k8.NewServiceReader(remoteServiceReaderChan)
 	remoteEndpointsReader := k8.NewEndpointsReader(remoteEndpointsReaderChan)
 
