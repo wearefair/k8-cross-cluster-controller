@@ -63,8 +63,8 @@ func (c *Cleaner) Run(stopChan <-chan struct{}, filter func(options *metav1.List
 						logger.Info("Deleting remote service", zap.Error(err), zap.String("service", service.Name))
 						// Send down channel to delete
 						req := &k8.ServiceRequest{
-							Type:          k8.RequestTypeDelete,
-							RemoteService: &service,
+							Type:         k8.RequestTypeDelete,
+							LocalService: &service,
 						}
 						c.ServiceWriter <- req
 					} else {
@@ -81,8 +81,8 @@ func (c *Cleaner) Run(stopChan <-chan struct{}, filter func(options *metav1.List
 						logger.Info("Deleting remote endpoint", zap.Error(err), zap.String("endpoint", endpoint.Name))
 						// Send down channel to delete
 						req := &k8.EndpointsRequest{
-							Type:            k8.RequestTypeDelete,
-							RemoteEndpoints: &endpoint,
+							Type:           k8.RequestTypeDelete,
+							LocalEndpoints: &endpoint,
 						}
 						c.EndpointWriter <- req
 					} else {
