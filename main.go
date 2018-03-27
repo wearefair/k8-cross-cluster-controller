@@ -44,7 +44,7 @@ var (
 
 func main() {
 	flag.StringVar(&kubeconfig, "kubeconfig", os.Getenv(EnvKubeConfigPath), "Path to kubeconfig for remote cluster")
-	flag.StringVar(&devMode, "devMode", os.Getenv(EnvDevMode), "Dev mode flag")
+	flag.StringVar(&devMode, "devmode", os.Getenv(EnvDevMode), "Dev mode flag")
 	flag.StringVar(&localContext, "local-context", "prototype-general", "DEV MODE: Context override for the local cluster. Defaults to prototype-general")
 	flag.StringVar(&remoteContext, "remote-context", "prototype-secure", "DEV MODE: Context override for the remote cluster. Defaults to prototype-secure")
 	flag.Parse()
@@ -73,27 +73,18 @@ func main() {
 	logger.Info("Setting up local writers")
 	localServiceWriterChan := make(chan *k8.ServiceRequest)
 	localEndpointsWriterChan := make(chan *k8.EndpointsRequest)
-	localEndpointsWriter := k8.NewEndpointsWriter(localClient, localEndpointsWriterChan)
-	localServiceWriter := k8.NewServiceWriter(localClient, localServiceWriterChan)
 
 	logger.Info("Setting up remote readers")
 	remoteServiceReaderChan := make(chan *k8.ServiceRequest)
-	remoteEndpointsReaderChan := make(chan *k8.EndpointsRequest)
 	remoteServiceReader := k8.NewServiceReader(remoteServiceReaderChan)
+	remoteEndpointsReaderChan := make(chan *k8.EndpointsRequest)
 	remoteEndpointsReader := k8.NewEndpointsReader(remoteEndpointsReaderChan)
 
-	intermediaryServiceReaderChan := make(chan *k8.ServiceRequest)
-	intermediaryEndpointsReaderChan := make(chan *k8.EndpointsRequest)
-
-	// Run local K8 writers
-	go localEndpointsWriter.Run()
-	go localServiceWriter.Run()
-
+	// Set up transformers
 	logger.Info("Setting up transformers")
-	go controller.ServiceAugmenter(localClient, remoteServiceReaderChan, intermediaryServiceReaderChan)
-	go controller.EndpointsAugmenter(localClient, remoteEndpointsReaderChan, intermediaryEndpointsReaderChan)
-	go controller.ServiceTransformer(intermediaryServiceReaderChan, localServiceWriterChan)
-	go controller.EndpointsTransformer(intermediaryEndpointsReaderChan, localEndpointsWriterChan)
+	augmenter := &controller.Augmenter{Client: localClient}
+	go controller.EndpointsPipeline(remoteEndpointsReaderChan, localEndpointsWriterChan, augmenter.Endpoints, controller.EndpointsWhitelist)
+	go controller.ServicePipeline(remoteServiceReaderChan, localServiceWriterChan, augmenter.Service, controller.ServiceWhitelist)
 
 	filter := func(options *metav1.ListOptions) {
 		options.LabelSelector = k8.CrossClusterLabel

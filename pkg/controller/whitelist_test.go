@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/wearefair/k8-cross-cluster-controller/pkg/k8"
+
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -34,7 +36,7 @@ func TestServiceWhitelist(t *testing.T) {
 		NewService *v1.Service
 		Expected   *v1.Service
 	}{
-		// Empty new service gets name, namespace, labels, clustername, ports, and session affinity copied over
+		// Empty new service gets name, namespace, labels, ports, and session affinity copied over
 		{
 			NewService: &v1.Service{},
 			Expected: &v1.Service{
@@ -44,7 +46,6 @@ func TestServiceWhitelist(t *testing.T) {
 					Labels: map[string]string{
 						"arf": "meow",
 					},
-					ClusterName: "liz lemon",
 				},
 				Spec: v1.ServiceSpec{
 					Ports: []v1.ServicePort{
@@ -56,7 +57,7 @@ func TestServiceWhitelist(t *testing.T) {
 				},
 			},
 		},
-		// Service with values filled in gets name, namespace, labels, clustername, ports, and session affinity copied over
+		// Service with values filled in gets name, namespace, labels, ports, and session affinity copied over
 		// but retains original other values
 		{
 			NewService: &v1.Service{
@@ -86,7 +87,7 @@ func TestServiceWhitelist(t *testing.T) {
 					Labels: map[string]string{
 						"arf": "meow",
 					},
-					ClusterName:     "liz lemon",
+					ClusterName:     "not the same cluster",
 					ResourceVersion: "this is totally a thing",
 				},
 				Spec: v1.ServiceSpec{
@@ -103,7 +104,11 @@ func TestServiceWhitelist(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		serviceWhitelist(originalSvc, testCase.NewService)
+		req := &k8.ServiceRequest{
+			RemoteService: originalSvc,
+			LocalService:  testCase.NewService,
+		}
+		ServiceWhitelist(req)
 		if !reflect.DeepEqual(testCase.NewService, testCase.Expected) {
 			t.Errorf("Expected: %+v\ngot: %+v", testCase.Expected, originalSvc)
 		}
@@ -138,7 +143,7 @@ func TestEndpointsWhitelist(t *testing.T) {
 		NewEndpoints *v1.Endpoints
 		Expected     *v1.Endpoints
 	}{
-		// Empty endpoints gets name, namespace, labels, cluster name, and subsets copied over
+		// Empty endpoints gets name, namespace, labels, and subsets copied over
 		{
 			NewEndpoints: &v1.Endpoints{},
 			Expected: &v1.Endpoints{
@@ -148,7 +153,6 @@ func TestEndpointsWhitelist(t *testing.T) {
 					Labels: map[string]string{
 						"arf": "meow",
 					},
-					ClusterName: "liz lemon",
 				},
 				Subsets: []v1.EndpointSubset{
 					v1.EndpointSubset{
@@ -162,7 +166,7 @@ func TestEndpointsWhitelist(t *testing.T) {
 				},
 			},
 		},
-		// Endpoints will get name, namespace, labels, clustername, and subsets copied over, but retain other original values
+		// Endpoints will get name, namespace, labels, and subsets copied over, but retain other original values
 		{
 			NewEndpoints: &v1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
@@ -193,7 +197,7 @@ func TestEndpointsWhitelist(t *testing.T) {
 					Labels: map[string]string{
 						"arf": "meow",
 					},
-					ClusterName:     "liz lemon",
+					ClusterName:     "deepspacenine",
 					SelfLink:        "blah",
 					ResourceVersion: "sauce",
 				},
@@ -212,7 +216,11 @@ func TestEndpointsWhitelist(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		endpointsWhitelist(originalEndpoints, testCase.NewEndpoints)
+		req := &k8.EndpointsRequest{
+			RemoteEndpoints: originalEndpoints,
+			LocalEndpoints:  testCase.NewEndpoints,
+		}
+		EndpointsWhitelist(req)
 		if !reflect.DeepEqual(testCase.NewEndpoints, testCase.Expected) {
 			t.Errorf("Expected endpoints %+v\ngot: %+v", testCase.Expected, originalEndpoints)
 		}
