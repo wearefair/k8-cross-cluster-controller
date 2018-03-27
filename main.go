@@ -22,8 +22,6 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -75,28 +73,37 @@ func main() {
 
 	logger.Info("Setting up local writers")
 	localServiceWriterChan := make(chan *k8.ServiceRequest)
-	localServiceWriter := k8.NewServiceWriter(localClient, localServiceWriterChan)
 	localEndpointsWriterChan := make(chan *k8.EndpointsRequest)
+	localServiceWriter := k8.NewServiceWriter(localClient, localServiceWriterChan)
 	localEndpointsWriter := k8.NewEndpointsWriter(localClient, localEndpointsWriterChan)
 	go localServiceWriter.Run()
 	go localEndpointsWriter.Run()
 
 	logger.Info("Setting up remote readers")
 	remoteServiceReaderChan := make(chan *k8.ServiceRequest)
-	remoteServiceReader := k8.NewServiceReader(remoteServiceReaderChan)
 	remoteEndpointsReaderChan := make(chan *k8.EndpointsRequest)
+	remoteServiceReader := k8.NewServiceReader(remoteServiceReaderChan)
 	remoteEndpointsReader := k8.NewEndpointsReader(remoteEndpointsReaderChan)
 
 	// Set up transformers
 	logger.Info("Setting up transformers")
 	augmenter := &controller.Augmenter{Client: localClient}
-	go controller.EndpointsPipeline(remoteEndpointsReaderChan, localEndpointsWriterChan, augmenter.Endpoints, controller.EndpointsWhitelist)
-	go controller.ServicePipeline(remoteServiceReaderChan, localServiceWriterChan, augmenter.Service, controller.ServiceWhitelist)
+	go controller.EndpointsPipeline(
+		remoteEndpointsReaderChan,
+		localEndpointsWriterChan,
+		augmenter.Endpoints,
+		controller.EndpointsWhitelist,
+		controller.EndpointsLabel,
+	)
+	go controller.ServicePipeline(
+		remoteServiceReaderChan,
+		localServiceWriterChan,
+		augmenter.Service,
+		controller.ServiceWhitelist,
+		controller.ServiceLabel,
+	)
 
 	logger.Info("Setting up service/endpoints cleaner")
-	filter := func(options *metav1.ListOptions) {
-		options.LabelSelector = k8.CrossClusterLabel
-	}
 	cleaner := cleaner.New(localClient, remoteClient, localEndpointsWriterChan, localServiceWriterChan)
 
 	// Set up leader election callback funcs
@@ -104,11 +111,14 @@ func main() {
 	// https://github.com/kubernetes/kubernetes/blob/dce1b881284a103909f5cfa969ff56e5e0565362/cmd/cloud-controller-manager/app/controllermanager.go#L157-L190
 	run := func(stopChan <-chan struct{}) {
 		logger.Info("Setting up watchers")
-		k8.WatchEndpoints(remoteClient, remoteEndpointsReader, filter, stopChan)
-		k8.WatchServices(remoteClient, remoteServiceReader, filter, stopChan)
-		go cleaner.Run(stopChan, filter)
+		k8.WatchEndpoints(remoteClient, remoteEndpointsReader, stopChan)
+		k8.WatchServices(remoteClient, remoteServiceReader, stopChan)
+		go cleaner.Run(stopChan)
 	}
+	leaderElection(localClient, run)
+}
 
+func leaderElection(localClient kubernetes.Interface, runFunc func(stopChan <-chan struct{})) {
 	// Create a unique identifier for the controller based off of hostname and UUID
 	id, err := os.Hostname()
 	if err != nil {
@@ -132,7 +142,7 @@ func main() {
 	}
 	logger.Info("Setting up leader election")
 	callbacks := leaderelection.LeaderCallbacks{
-		OnStartedLeading: run,
+		OnStartedLeading: runFunc,
 	}
 	config := leaderelection.LeaderElectionConfig{
 		Callbacks:     callbacks,

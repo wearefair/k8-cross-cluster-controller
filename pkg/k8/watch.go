@@ -11,11 +11,9 @@ import (
 
 const (
 	defaultResyncPeriod = 30 * time.Second
-	k8Endpoints         = "endpoints"
-	k8Services          = "services"
+	K8Endpoints         = "endpoints"
+	K8Services          = "services"
 )
-
-type Filter func(options *metav1.ListOptions)
 
 type Watcher interface {
 	Add(interface{})
@@ -24,9 +22,9 @@ type Watcher interface {
 }
 
 // WatchEndpoints watches for endpoint update and delete events
-func WatchEndpoints(clientset kubernetes.Interface, w Watcher, filters Filter, stopChan <-chan struct{}) {
+func WatchEndpoints(clientset kubernetes.Interface, w Watcher, stopChan <-chan struct{}) {
 	restClient := clientset.CoreV1().RESTClient()
-	watchlist := cache.NewFilteredListWatchFromClient(restClient, k8Endpoints, metav1.NamespaceAll, filters)
+	watchlist := cache.NewFilteredListWatchFromClient(restClient, K8Endpoints, metav1.NamespaceAll, RemoteFilter)
 	_, informer := cache.NewInformer(watchlist, &v1.Endpoints{}, defaultResyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    w.Add,
@@ -38,9 +36,9 @@ func WatchEndpoints(clientset kubernetes.Interface, w Watcher, filters Filter, s
 }
 
 // WatchServices watches for service add, update, and delete events
-func WatchServices(clientset kubernetes.Interface, w Watcher, filters func(options *metav1.ListOptions), stopChan <-chan struct{}) {
+func WatchServices(clientset kubernetes.Interface, w Watcher, stopChan <-chan struct{}) {
 	restClient := clientset.CoreV1().RESTClient()
-	watchlist := cache.NewFilteredListWatchFromClient(restClient, k8Services, metav1.NamespaceAll, filters)
+	watchlist := cache.NewFilteredListWatchFromClient(restClient, K8Services, metav1.NamespaceAll, RemoteFilter)
 	_, informer := cache.NewInformer(watchlist, &v1.Service{}, defaultResyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    w.Add,

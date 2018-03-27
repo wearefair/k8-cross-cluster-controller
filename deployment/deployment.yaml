@@ -27,6 +27,8 @@ spec:
                   key: environment
             - name: TRACING_APP_NAME
               value: cross-cluster-controller
+            - name: SENTRY_DSN
+              value: 'https://8607c813ea034c8b82667b468de8730e:54e57bb7fdad478f822704fb1555cf1f@sentry.io/691241'
             - name: KUBECONFIG_PATH
               value: /etc/k8-cross-cluster-controller/kubeconfig.yaml
       volumes:

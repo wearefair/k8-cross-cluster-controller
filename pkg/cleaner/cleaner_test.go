@@ -1,49 +1,62 @@
 package cleaner
 
 import (
-	"errors"
 	"testing"
 
-	"k8s.io/api/apps/v1beta1"
-	k8errors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestK8ResourceDoesNotExist(t *testing.T) {
-	fakeGroup := schema.GroupResource{
-		Group:    v1beta1.SchemeGroupVersion.Group,
-		Resource: "blah",
-	}
+func TestResourceExists(t *testing.T) {
 	testCases := []struct {
-		Err      error
-		Expected bool
+		LocalMeta  metav1.ObjectMeta
+		RemoteMeta metav1.ObjectMeta
+		Expected   bool
 	}{
-		// K8 error that isn't a Gone/NotFound type returns false
+		// If local meta and remote meta are empty, return true
 		{
-			Err: k8errors.NewBadRequest("foo"),
+			LocalMeta:  metav1.ObjectMeta{},
+			RemoteMeta: metav1.ObjectMeta{},
+			Expected:   true,
 		},
-		// K8 error that is a Gone type returns true
+		// If local meta and remote meta have the same name, but different namespaces, return false
 		{
-			Err:      k8errors.NewGone("baby gone"),
+			LocalMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+			RemoteMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "baz",
+			},
+		},
+		// If local meta and remote meta have the same namespace, but different names, return false
+		{
+			LocalMeta: metav1.ObjectMeta{
+				Name:      "bar",
+				Namespace: "foo",
+			},
+			RemoteMeta: metav1.ObjectMeta{
+				Name:      "baz",
+				Namespace: "foo",
+			},
+		},
+		// If local meta and remote meta have the same name and same namespace, return true
+		{
+			LocalMeta: metav1.ObjectMeta{
+				Name:      "bar",
+				Namespace: "foo",
+			},
+			RemoteMeta: metav1.ObjectMeta{
+				Name:      "bar",
+				Namespace: "foo",
+			},
 			Expected: true,
 		},
-		// K8 error that is a NotFound type returns true
-		{
-			Err:      k8errors.NewNotFound(fakeGroup, "404"),
-			Expected: true,
-		},
-		// Non-K8 error type returns false
-		{
-			Err: errors.New("oh no"),
-		},
-		// Nil returns false
-		{},
 	}
-
 	for _, testCase := range testCases {
-		res := k8ResourceDoesNotExist(testCase.Err)
+		res := resourceExists(testCase.LocalMeta, testCase.RemoteMeta)
 		if testCase.Expected != res {
-			t.Errorf("Expected %t, got %t", testCase.Expected, res)
+			t.Errorf("Expected: %t, got %t", testCase.Expected, res)
 		}
 	}
 }
