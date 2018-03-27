@@ -44,6 +44,7 @@ func New(localClient, remoteClient kubernetes.Interface, endpointWriter chan *k8
 }
 
 func (c *Cleaner) Run(stopChan <-chan struct{}, filter func(options *metav1.ListOptions)) {
+	logger.Info("Starting cleaner")
 	opts := &metav1.ListOptions{}
 	filter(opts)
 	ticker := time.NewTicker(defaultSleepTime).C
@@ -99,6 +100,7 @@ func k8ResourceDoesNotExist(err error) bool {
 
 // Lists all endpoints that are local with the cross cluster label
 func (c *Cleaner) listLocalEndpoints(opts metav1.ListOptions) []v1.Endpoints {
+	logger.Info("Listing local endpoints for clean")
 	list, err := c.LocalClient.CoreV1().Endpoints(metav1.NamespaceAll).List(opts)
 	// If there's an error, we want to report it, but we don't necessarily need to propagate it
 	if err != nil {
@@ -110,6 +112,7 @@ func (c *Cleaner) listLocalEndpoints(opts metav1.ListOptions) []v1.Endpoints {
 
 // List all services that are local with the cross cluster label
 func (c *Cleaner) listLocalServices(opts metav1.ListOptions) []v1.Service {
+	logger.Info("Listing local services for clean")
 	list, err := c.LocalClient.CoreV1().Services(metav1.NamespaceAll).List(opts)
 	// If there's an error, we want to report it, but we don't necessarily need to propagate it
 	if err != nil {

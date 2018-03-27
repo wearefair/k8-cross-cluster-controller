@@ -10,8 +10,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// The Augmenter "augments" an EndpointsRequest or ServiceRequest with a local K8 resource
-// that will further be transformed down the pipeline before the writers act upon it.
 type Augmenter struct {
 	Client kubernetes.Interface
 }
@@ -26,7 +24,7 @@ func (a *Augmenter) Service(req *k8.ServiceRequest) error {
 			return errors.Error(context.Background(), err)
 		}
 		req.LocalService = localService
-	// We don't apply any transformations on the local endpoint, because a delete just requires the K8 object name
+	// We can just copy the remote service, because a delete just requires the K8 resource name
 	case k8.RequestTypeDelete:
 		req.LocalService = req.RemoteService
 	}
@@ -43,7 +41,7 @@ func (a *Augmenter) Endpoints(req *k8.EndpointsRequest) error {
 			return errors.Error(context.Background(), err)
 		}
 		req.LocalEndpoints = localEndpoints
-	// We don't apply any transformations on the local endpoint, because a delete just requires the K8 object name
+	// We can just copy the remote endpoint, because a delete just requires the K8 resource name
 	case k8.RequestTypeDelete:
 		req.LocalEndpoints = req.RemoteEndpoints
 	}

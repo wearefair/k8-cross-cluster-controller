@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/cleaner"
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/controller"
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/k8"
@@ -156,9 +158,6 @@ func setupLocalConfig() (*rest.Config, error) {
 		}
 		localKubeConf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
 		conf, err = localKubeConf.ClientConfig()
-		if err != nil {
-			return nil, ferrors.Error(context.Background(), err)
-		}
 	} else {
 		conf, err = rest.InClusterConfig()
 	}
@@ -174,6 +173,7 @@ func setupLocalConfig() (*rest.Config, error) {
 func setupRemoteConfig(remoteConfPath string) (*rest.Config, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	if remoteConfPath != "" {
+		logger.Info("Setting remote config path", zap.String("path", remoteConfPath))
 		loadingRules.ExplicitPath = remoteConfPath
 	}
 	configOverrides := &clientcmd.ConfigOverrides{}

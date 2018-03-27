@@ -37,9 +37,7 @@ func TestK8ResourceDoesNotExist(t *testing.T) {
 			Err: errors.New("oh no"),
 		},
 		// Nil returns false
-		{
-			Err: nil,
-		},
+		{},
 	}
 
 	for _, testCase := range testCases {
