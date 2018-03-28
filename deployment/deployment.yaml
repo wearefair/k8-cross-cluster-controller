@@ -1,0 +1,40 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: cross-cluster-controller
+  namespace: fair-system
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: cross-cluster-controller
+    spec:
+      serviceAccountName: cross-cluster-controller
+      containers:
+        - name: cross-cluster-controller
+          image: 889883130442.dkr.ecr.us-west-2.amazonaws.com/k8-cross-cluster-controller:${IMAGE_TAG}
+          volumeMounts:
+            - name: secrets
+              mountPath: /etc/k8-cross-cluster-controller
+              readOnly: true
+          env:
+            - name: FAIR_ENV
+              valueFrom: 
+                configMapKeyRef:
+                  name: cluster
+                  key: environment
+            - name: TRACING_APP_NAME
+              value: cross-cluster-controller
+            - name: SENTRY_DSN
+              value: 'https://8607c813ea034c8b82667b468de8730e:54e57bb7fdad478f822704fb1555cf1f@sentry.io/691241'
+            - name: KUBECONFIG_PATH
+              value: /etc/k8-cross-cluster-controller/kubeconfig.yaml
+      volumes:
+        - name: secrets
+          secret:
+            secretName: k8-cross-cluster-controller
+            items:
+              - key: kubeconfig.yaml
+                path: kubeconfig.yaml
