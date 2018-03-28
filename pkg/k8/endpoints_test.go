@@ -13,13 +13,13 @@ import (
 func TestEndpointsWriterUpdate(t *testing.T) {
 	fakeClientSet := fake.NewSimpleClientset()
 	testCases := []struct {
-		EndpointToCreate *v1.Endpoints
-		UpdateEndpoint   *v1.Endpoints
-		ExpectedEndpoint *v1.Endpoints
+		EndpointsToCreate *v1.Endpoints
+		UpdateEndpoints   *v1.Endpoints
+		ExpectedEndpoints *v1.Endpoints
 	}{
 		// Endpoints object already exists, update
 		{
-			EndpointToCreate: &v1.Endpoints{
+			EndpointsToCreate: &v1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "dead space",
@@ -28,7 +28,7 @@ func TestEndpointsWriterUpdate(t *testing.T) {
 					},
 				},
 			},
-			UpdateEndpoint: &v1.Endpoints{
+			UpdateEndpoints: &v1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "dead space",
@@ -37,7 +37,7 @@ func TestEndpointsWriterUpdate(t *testing.T) {
 					},
 				},
 			},
-			ExpectedEndpoint: &v1.Endpoints{
+			ExpectedEndpoints: &v1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "dead space",
@@ -49,7 +49,7 @@ func TestEndpointsWriterUpdate(t *testing.T) {
 		},
 		// Endpoints object doesn't exist, attempt a create if update fails
 		{
-			UpdateEndpoint: &v1.Endpoints{
+			UpdateEndpoints: &v1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "dead space",
@@ -58,7 +58,7 @@ func TestEndpointsWriterUpdate(t *testing.T) {
 					},
 				},
 			},
-			ExpectedEndpoint: &v1.Endpoints{
+			ExpectedEndpoints: &v1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "dead space",
@@ -75,21 +75,21 @@ func TestEndpointsWriterUpdate(t *testing.T) {
 			Events: make(chan *EndpointsRequest, 4),
 			Client: fakeClientSet,
 		}
-		if testCase.EndpointToCreate != nil {
-			_, err := fakeClientSet.CoreV1().Endpoints(testCase.EndpointToCreate.ObjectMeta.Namespace).Create(testCase.EndpointToCreate)
+		if testCase.EndpointsToCreate != nil {
+			_, err := fakeClientSet.CoreV1().Endpoints(testCase.EndpointsToCreate.ObjectMeta.Namespace).Create(testCase.EndpointsToCreate)
 			if err != nil {
 				t.Fatalf("Something went wrong creating fake endpoint against fake clientset %v", err)
 			}
 		}
-		writer.update(testCase.UpdateEndpoint)
+		writer.update(testCase.UpdateEndpoints)
 		endpoints, err := fakeClientSet.CoreV1().
-			Endpoints(testCase.ExpectedEndpoint.ObjectMeta.Namespace).
-			Get(testCase.ExpectedEndpoint.ObjectMeta.Name, metav1.GetOptions{})
+			Endpoints(testCase.ExpectedEndpoints.ObjectMeta.Namespace).
+			Get(testCase.ExpectedEndpoints.ObjectMeta.Name, metav1.GetOptions{})
 		if err != nil {
 			t.Errorf("Could not get endpoint %v", err)
 		}
-		if !reflect.DeepEqual(testCase.ExpectedEndpoint, endpoints) {
-			t.Errorf("Expected endpoint: %+v\ngot: %+v", testCase.ExpectedEndpoint, endpoints)
+		if !reflect.DeepEqual(testCase.ExpectedEndpoints, endpoints) {
+			t.Errorf("Expected endpoint: %+v\ngot: %+v", testCase.ExpectedEndpoints, endpoints)
 		}
 	}
 }
