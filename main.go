@@ -155,10 +155,9 @@ func leaderElection(localClient kubernetes.Interface, runFunc func(stopChan <-ch
 	leaderelection.RunOrDie(config)
 }
 
-// If the controller is configured to run in development mode, it is configured to
+// If the controller is configured to run in development mode, it will
 // load the configuration from the default kubeconfig path ($HOME/.kube/config).
-// Otherwise, it'll run the local client with the in cluster config
-// and the remote config from the config path that's passed in
+// Otherwise, it'll run the local client with the in-cluster config
 func setupLocalConfig() (*rest.Config, error) {
 	var conf *rest.Config
 	var err error

@@ -25,7 +25,9 @@ var (
 
 	CrossClusterLocalLabel  = fmt.Sprintf("%s=%s", CrossClusterServiceLabelKey, CrossClusterServiceLocalLabelValue)
 	CrossClusterRemoteLabel = fmt.Sprintf("%s=%s", CrossClusterServiceLabelKey, CrossClusterServiceRemoteLabelValue)
-	LocalFilter             = metav1.ListOptions{
+	// Ideally the local filter and the remote filter will be in a consistent format, but the watcher for the remote filter
+	// requires an options func
+	LocalFilter = metav1.ListOptions{
 		LabelSelector: CrossClusterLocalLabel,
 	}
 	RemoteFilter = func(options *metav1.ListOptions) {
