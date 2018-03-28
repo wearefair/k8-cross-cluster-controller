@@ -1,6 +1,7 @@
 package cleaner
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -11,13 +12,10 @@ import (
 )
 
 func TestCleanOrphanedEndpoints(t *testing.T) {
-	cleaner := &Cleaner{
-		EndpointWriter: make(chan *k8.EndpointsRequest, 4),
-	}
 	testCases := []struct {
-		LocalEndpoints  []v1.Endpoints
-		RemoteEndpoints []v1.Endpoints
-		ExpectedCount   int
+		LocalEndpoints   []v1.Endpoints
+		RemoteEndpoints  []v1.Endpoints
+		ExpectedRequests []*k8.EndpointsRequest
 	}{
 		// If there is 1 local endpoint with 1 remote endpoint that doesn't match, delete local endpoint
 		{
@@ -37,7 +35,17 @@ func TestCleanOrphanedEndpoints(t *testing.T) {
 					},
 				},
 			},
-			ExpectedCount: 1,
+			ExpectedRequests: []*k8.EndpointsRequest{
+				&k8.EndpointsRequest{
+					Type: k8.RequestTypeDelete,
+					LocalEndpoints: &v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+					},
+				},
+			},
 		},
 		// If the local endpoint and remote endpoint match, do not delete
 		{
@@ -57,6 +65,7 @@ func TestCleanOrphanedEndpoints(t *testing.T) {
 					},
 				},
 			},
+			ExpectedRequests: []*k8.EndpointsRequest{},
 		},
 		// If there is 1 local endpoint that exist and 2 remote endpoints, 1 that doesn't match, do nothing
 		{
@@ -82,6 +91,7 @@ func TestCleanOrphanedEndpoints(t *testing.T) {
 					},
 				},
 			},
+			ExpectedRequests: []*k8.EndpointsRequest{},
 		},
 		// If there is 1 local endpoint and no remote endpoints, delete local endpoint
 		{
@@ -94,10 +104,23 @@ func TestCleanOrphanedEndpoints(t *testing.T) {
 				},
 			},
 			RemoteEndpoints: []v1.Endpoints{},
-			ExpectedCount:   1,
+			ExpectedRequests: []*k8.EndpointsRequest{
+				&k8.EndpointsRequest{
+					Type: k8.RequestTypeDelete,
+					LocalEndpoints: &v1.Endpoints{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+					},
+				},
+			},
 		},
 	}
 	for _, testCase := range testCases {
+		cleaner := &Cleaner{
+			EndpointWriter: make(chan *k8.EndpointsRequest, 4),
+		}
 		cleaner.cleanOrphanedEndpoints(testCase.LocalEndpoints, testCase.RemoteEndpoints)
 		reqs := []*k8.EndpointsRequest{}
 	OUTER:
@@ -112,22 +135,19 @@ func TestCleanOrphanedEndpoints(t *testing.T) {
 				reqs = append(reqs, req)
 			}
 		}
-		if len(reqs) != testCase.ExpectedCount {
-			t.Errorf("Expected to get %d endpoint deletion requests, but got %d", testCase.ExpectedCount, len(reqs))
+		if !reflect.DeepEqual(reqs, testCase.ExpectedRequests) {
+			t.Errorf("Expected these endpoints to be queued for deletion %+v\ngot:%+v", testCase.ExpectedRequests, reqs)
 		}
 	}
 }
 
 func TestCleanOrphanedServices(t *testing.T) {
-	cleaner := &Cleaner{
-		ServiceWriter: make(chan *k8.ServiceRequest, 4),
-	}
 	testCases := []struct {
-		LocalService  []v1.Service
-		RemoteService []v1.Service
-		ExpectedCount int
+		LocalService     []v1.Service
+		RemoteService    []v1.Service
+		ExpectedRequests []*k8.ServiceRequest
 	}{
-		// If there is 1 local endpoint with 1 remote endpoint that doesn't match, delete local endpoint
+		// If there is 1 local service with 1 remote service that doesn't match, delete local service
 		{
 			LocalService: []v1.Service{
 				v1.Service{
@@ -145,7 +165,17 @@ func TestCleanOrphanedServices(t *testing.T) {
 					},
 				},
 			},
-			ExpectedCount: 1,
+			ExpectedRequests: []*k8.ServiceRequest{
+				&k8.ServiceRequest{
+					Type: k8.RequestTypeDelete,
+					LocalService: &v1.Service{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+					},
+				},
+			},
 		},
 		// If the local service and remote service match, do not delete
 		{
@@ -165,6 +195,7 @@ func TestCleanOrphanedServices(t *testing.T) {
 					},
 				},
 			},
+			ExpectedRequests: []*k8.ServiceRequest{},
 		},
 		// If there is 1 local service that exist and 2 remote service, 1 that doesn't match, do nothing
 		{
@@ -190,6 +221,7 @@ func TestCleanOrphanedServices(t *testing.T) {
 					},
 				},
 			},
+			ExpectedRequests: []*k8.ServiceRequest{},
 		},
 		// If there is 1 local service and no remote service, delete local service
 		{
@@ -202,10 +234,23 @@ func TestCleanOrphanedServices(t *testing.T) {
 				},
 			},
 			RemoteService: []v1.Service{},
-			ExpectedCount: 1,
+			ExpectedRequests: []*k8.ServiceRequest{
+				&k8.ServiceRequest{
+					Type: k8.RequestTypeDelete,
+					LocalService: &v1.Service{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+					},
+				},
+			},
 		},
 	}
 	for _, testCase := range testCases {
+		cleaner := &Cleaner{
+			ServiceWriter: make(chan *k8.ServiceRequest, 4),
+		}
 		cleaner.cleanOrphanedServices(testCase.LocalService, testCase.RemoteService)
 		reqs := []*k8.ServiceRequest{}
 	OUTER:
@@ -220,8 +265,8 @@ func TestCleanOrphanedServices(t *testing.T) {
 				reqs = append(reqs, req)
 			}
 		}
-		if len(reqs) != testCase.ExpectedCount {
-			t.Errorf("Expected to get %d service deletion requests, but got %d", testCase.ExpectedCount, len(reqs))
+		if !reflect.DeepEqual(testCase.ExpectedRequests, reqs) {
+			t.Errorf("Expected these services to be queued for deletion: %+v, but got %+v", testCase.ExpectedRequests, reqs)
 		}
 	}
 }
