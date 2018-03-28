@@ -60,16 +60,25 @@ func NewEndpointsWriter(clientset kubernetes.Interface, events chan *EndpointsRe
 func (e *EndpointsWriter) add(endpoints *v1.Endpoints) {
 	logger.Info("Creating endpoints", zap.String("name", endpoints.Name),
 		zap.String("namespace", endpoints.ObjectMeta.Namespace))
-	_, err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Create(endpoints)
-	if err != nil {
-		errors.Error(context.Background(), err)
-	}
+	e.create(endpoints)
 }
 
 func (e *EndpointsWriter) update(endpoints *v1.Endpoints) {
 	logger.Info("Updating endpoints", zap.String("name", endpoints.Name),
 		zap.String("namespace", endpoints.ObjectMeta.Namespace))
 	_, err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Update(endpoints)
+	if err != nil {
+		// If the endpoint doesn't exist, attempt to create it
+		if ResourceNotExist(err) {
+			e.create(endpoints)
+		} else {
+			errors.Error(context.Background(), err)
+		}
+	}
+}
+
+func (e *EndpointsWriter) create(endpoints *v1.Endpoints) {
+	_, err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Create(endpoints)
 	if err != nil {
 		errors.Error(context.Background(), err)
 	}
