@@ -5,6 +5,7 @@ import (
 
 	"github.com/wearefair/service-kit-go/logging"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -50,4 +51,8 @@ type EndpointsRequest struct {
 	Type            RequestType
 	RemoteEndpoints *v1.Endpoints
 	LocalEndpoints  *v1.Endpoints
+}
+
+func ResourceNotExist(err error) bool {
+	return errors.IsNotFound(err) || errors.IsGone(err)
 }
