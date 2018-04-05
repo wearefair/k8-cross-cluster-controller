@@ -1,2 +1,2 @@
 releases:
-  branches: [master, task/deployment]
+  branches: [master]
