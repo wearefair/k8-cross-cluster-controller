@@ -1,8 +1,11 @@
 package k8
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/cenkalti/backoff"
+	ferrors "github.com/wearefair/service-kit-go/errors"
 	"github.com/wearefair/service-kit-go/logging"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -55,4 +58,11 @@ type EndpointsRequest struct {
 
 func ResourceNotExist(err error) bool {
 	return errors.IsNotFound(err) || errors.IsGone(err)
+}
+
+func exponentialBackOff(ctx context.Context, retryFunc func() error) {
+	err := backoff.Retry(retryFunc, backoff.NewExponentialBackOff())
+	if err != nil {
+		ferrors.Error(ctx, err)
+	}
 }

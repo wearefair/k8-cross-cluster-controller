@@ -64,33 +64,50 @@ func (e *EndpointsWriter) add(endpoints *v1.Endpoints) {
 }
 
 func (e *EndpointsWriter) update(endpoints *v1.Endpoints) {
-	logger.Info("Updating endpoints", zap.String("name", endpoints.Name),
-		zap.String("namespace", endpoints.ObjectMeta.Namespace))
-	_, err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Update(endpoints)
-	if err != nil {
-		// If the endpoint doesn't exist, attempt to create it
-		if ResourceNotExist(err) {
-			e.create(endpoints)
-		} else {
-			errors.Error(context.Background(), err)
+	ctx := context.Background()
+	update := func() error {
+		logger.Info("Updating endpoints", zap.String("name", endpoints.Name),
+			zap.String("namespace", endpoints.ObjectMeta.Namespace))
+		_, err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Update(endpoints)
+		if err != nil {
+			// If the endpoint doesn't exist, attempt to create it
+			if ResourceNotExist(err) {
+				e.create(endpoints)
+			} else {
+				return errors.Error(context.Background(), err)
+			}
 		}
+		return nil
 	}
+	exponentialBackOff(ctx, update)
 }
 
 func (e *EndpointsWriter) create(endpoints *v1.Endpoints) {
-	_, err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Create(endpoints)
-	if err != nil {
-		errors.Error(context.Background(), err)
+	ctx := context.Background()
+	create := func() error {
+		logger.Info("Creating endpoints", zap.String("name", endpoints.Name),
+			zap.String("namespace", endpoints.ObjectMeta.Namespace))
+		_, err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Create(endpoints)
+		if err != nil {
+			return errors.Error(ctx, err)
+		}
+		return nil
 	}
+	exponentialBackOff(ctx, create)
 }
 
 func (e *EndpointsWriter) delete(endpoints *v1.Endpoints) {
-	logger.Info("Deleting endpoints", zap.String("name", endpoints.Name),
-		zap.String("namespace", endpoints.ObjectMeta.Namespace))
-	err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Delete(endpoints.Name, &metav1.DeleteOptions{})
-	if err != nil {
-		errors.Error(context.Background(), err)
+	ctx := context.Background()
+	delete := func() error {
+		logger.Info("Deleting endpoints", zap.String("name", endpoints.Name),
+			zap.String("namespace", endpoints.ObjectMeta.Namespace))
+		err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Delete(endpoints.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			errors.Error(ctx, err)
+		}
+		return nil
 	}
+	exponentialBackOff(ctx, delete)
 }
 
 func (e *EndpointsWriter) Run() {

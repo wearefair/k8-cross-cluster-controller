@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"os"
+	"reflect"
 	"time"
 
 	"go.uber.org/zap"
@@ -27,6 +29,7 @@ import (
 const (
 	EnvDevMode                  = "DEV_MODE"
 	EnvKubeConfigPath           = "KUBECONFIG_PATH"
+	ErrLocalRemoteK8ConfMatch   = errors.New("Local and remote K8 configuration cannot be the same.")
 	channelBufferCount          = 4
 	controllerName              = "cross-cluster-controller"
 	fairSystemK8Namespace       = "fair-system"
@@ -57,6 +60,11 @@ func main() {
 	}
 	remoteConf, err := setupRemoteConfig(kubeconfig)
 	if err != nil {
+		logger.Fatal(err.Error())
+	}
+
+	logger.Info("Performing sanity checks on the kubeconfig")
+	if err := validateK8Conf(localConf, remoteConf); err != nil {
 		logger.Fatal(err.Error())
 	}
 
@@ -203,4 +211,15 @@ func devModeEnabled() bool {
 		return true
 	}
 	return false
+}
+
+func validateK8Conf(localConf, remoteConf *rest.Config) error {
+	// Don't need to perform validation checks when dev mode enabled
+	if devModeEnabled() {
+		return nil
+	}
+	if reflect.DeepEqual(localConf, remoteConf) {
+		return ErrLocalRemoteK8ConfMatch
+	}
+	return nil
 }

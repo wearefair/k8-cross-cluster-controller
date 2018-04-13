@@ -75,18 +75,29 @@ func (s *ServiceWriter) update(svc *v1.Service) {
 }
 
 func (s *ServiceWriter) create(svc *v1.Service) {
-	_, err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Create(svc)
-	if err != nil {
-		errors.Error(context.Background(), err)
+	ctx := context.Background()
+	create := func() error {
+		logger.Info("Creating service", zap.String("name", svc.Name), zap.String("namespace", svc.ObjectMeta.Namespace))
+		_, err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Create(svc)
+		if err != nil {
+			return errors.Error(ctx, err)
+		}
+		return nil
 	}
+	exponentialBackOff(ctx, create)
 }
 
 func (s *ServiceWriter) delete(svc *v1.Service) {
-	logger.Info("Deleting service", zap.String("name", svc.Name), zap.String("namespace", svc.ObjectMeta.Namespace))
-	err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
-	if err != nil {
-		errors.Error(context.Background(), err)
+	ctx := context.Background()
+	delete := func() error {
+		logger.Info("Deleting service", zap.String("name", svc.Name), zap.String("namespace", svc.ObjectMeta.Namespace))
+		err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			return errors.Error(context.Background(), err)
+		}
+		return nil
 	}
+	exponentialBackOff(ctx, delete)
 }
 
 func (s *ServiceWriter) Run() {
