@@ -3,6 +3,7 @@ package k8
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cenkalti/backoff"
 	ferrors "github.com/wearefair/service-kit-go/errors"
@@ -15,7 +16,9 @@ import (
 type RequestType int
 
 const (
-	RequestTypeAdd RequestType = iota
+	backOffMaxElapsedTime             = 2 * time.Minute
+	backOffMaxInterval                = 5 * time.Second
+	RequestTypeAdd        RequestType = iota
 	RequestTypeUpdate
 	RequestTypeDelete
 
@@ -61,7 +64,11 @@ func ResourceNotExist(err error) bool {
 }
 
 func exponentialBackOff(ctx context.Context, retryFunc func() error) {
-	err := backoff.Retry(retryFunc, backoff.NewExponentialBackOff())
+	// Get settings and then override the ones we don't want
+	settings := backoff.NewExponentialBackOff()
+	settings.MaxInterval = backOffMaxInterval
+	settings.MaxElapsedTime = backOffMaxElapsedTime
+	err := backoff.Retry(retryFunc, settings)
 	if err != nil {
 		ferrors.Error(ctx, err)
 	}

@@ -63,7 +63,7 @@ func main() {
 		logger.Fatal(err.Error())
 	}
 
-	logger.Info("Performing sanity checks on the kubeconfig")
+	logger.Info("Performing sanity checks on kubeconfig settings")
 	if err := validateK8Conf(localConf, remoteConf); err != nil {
 		logger.Fatal(err.Error())
 	}
