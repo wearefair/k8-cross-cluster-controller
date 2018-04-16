@@ -63,7 +63,6 @@ func (e *EndpointsWriter) add(endpoints *v1.Endpoints) {
 }
 
 func (e *EndpointsWriter) update(endpoints *v1.Endpoints) {
-	ctx := context.Background()
 	update := func() error {
 		logger.Info("Updating endpoints", zap.String("name", endpoints.Name),
 			zap.String("namespace", endpoints.ObjectMeta.Namespace))
@@ -78,11 +77,10 @@ func (e *EndpointsWriter) update(endpoints *v1.Endpoints) {
 		}
 		return nil
 	}
-	exponentialBackOff(ctx, update)
+	exponentialBackOff(context.Background(), update)
 }
 
 func (e *EndpointsWriter) create(endpoints *v1.Endpoints) {
-	ctx := context.Background()
 	create := func() error {
 		logger.Info("Creating endpoints", zap.String("name", endpoints.Name),
 			zap.String("namespace", endpoints.ObjectMeta.Namespace))
@@ -92,11 +90,10 @@ func (e *EndpointsWriter) create(endpoints *v1.Endpoints) {
 		}
 		return nil
 	}
-	exponentialBackOff(ctx, create)
+	exponentialBackOff(context.Background(), create)
 }
 
 func (e *EndpointsWriter) delete(endpoints *v1.Endpoints) {
-	ctx := context.Background()
 	delete := func() error {
 		logger.Info("Deleting endpoints", zap.String("name", endpoints.Name),
 			zap.String("namespace", endpoints.ObjectMeta.Namespace))
@@ -106,7 +103,7 @@ func (e *EndpointsWriter) delete(endpoints *v1.Endpoints) {
 		}
 		return nil
 	}
-	exponentialBackOff(ctx, delete)
+	exponentialBackOff(context.Background(), delete)
 }
 
 func (e *EndpointsWriter) Run() {
