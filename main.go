@@ -44,7 +44,7 @@ var (
 	remoteContext string
 	logger        = logging.Logger()
 
-	ErrLocalRemoteK8ConfMatch = errors.New("Local and remote K8 configuration cannot be the same host.")
+	ErrLocalRemoteK8ConfMatch = errors.New("Local and remote K8 configuration cannot point to the same host.")
 )
 
 func main() {
