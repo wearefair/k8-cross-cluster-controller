@@ -5,7 +5,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/wearefair/service-kit-go/errors"
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -74,7 +73,7 @@ func (e *EndpointsWriter) update(endpoints *v1.Endpoints) {
 			if ResourceNotExist(err) {
 				e.create(endpoints)
 			} else {
-				return errors.Error(context.Background(), err)
+				return err
 			}
 		}
 		return nil
@@ -89,7 +88,7 @@ func (e *EndpointsWriter) create(endpoints *v1.Endpoints) {
 			zap.String("namespace", endpoints.ObjectMeta.Namespace))
 		_, err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Create(endpoints)
 		if err != nil {
-			return errors.Error(ctx, err)
+			return err
 		}
 		return nil
 	}
@@ -103,7 +102,7 @@ func (e *EndpointsWriter) delete(endpoints *v1.Endpoints) {
 			zap.String("namespace", endpoints.ObjectMeta.Namespace))
 		err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Delete(endpoints.Name, &metav1.DeleteOptions{})
 		if err != nil {
-			errors.Error(ctx, err)
+			return err
 		}
 		return nil
 	}

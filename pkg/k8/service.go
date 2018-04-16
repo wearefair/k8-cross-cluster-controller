@@ -5,7 +5,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/wearefair/service-kit-go/errors"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -63,41 +62,43 @@ func (s *ServiceWriter) add(svc *v1.Service) {
 
 func (s *ServiceWriter) update(svc *v1.Service) {
 	logger.Info("Updating service", zap.String("name", svc.Name), zap.String("namespace", svc.ObjectMeta.Namespace))
-	_, err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Update(svc)
-	if err != nil {
-		// If the service doesn't exist for some reason, attempt to create it
-		if ResourceNotExist(err) {
-			s.create(svc)
-		} else {
-			errors.Error(context.Background(), err)
+	update := func() error {
+		_, err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Update(svc)
+		if err != nil {
+			// If the service doesn't exist for some reason, attempt to create it
+			if ResourceNotExist(err) {
+				s.create(svc)
+			} else {
+				return err
+			}
 		}
+		return nil
 	}
+	exponentialBackOff(context.Background(), update)
 }
 
 func (s *ServiceWriter) create(svc *v1.Service) {
-	ctx := context.Background()
 	create := func() error {
 		logger.Info("Creating service", zap.String("name", svc.Name), zap.String("namespace", svc.ObjectMeta.Namespace))
 		_, err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Create(svc)
 		if err != nil {
-			return errors.Error(ctx, err)
+			return err
 		}
 		return nil
 	}
-	exponentialBackOff(ctx, create)
+	exponentialBackOff(context.Background(), create)
 }
 
 func (s *ServiceWriter) delete(svc *v1.Service) {
-	ctx := context.Background()
 	delete := func() error {
 		logger.Info("Deleting service", zap.String("name", svc.Name), zap.String("namespace", svc.ObjectMeta.Namespace))
 		err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
 		if err != nil {
-			return errors.Error(context.Background(), err)
+			return err
 		}
 		return nil
 	}
-	exponentialBackOff(ctx, delete)
+	exponentialBackOff(context.Background(), delete)
 }
 
 func (s *ServiceWriter) Run() {
