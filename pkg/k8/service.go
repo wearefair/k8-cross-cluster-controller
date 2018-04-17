@@ -3,10 +3,11 @@ package k8
 import (
 	"context"
 
+	"github.com/cenkalti/backoff"
 	"go.uber.org/zap"
 
-	"github.com/wearefair/service-kit-go/errors"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -63,30 +64,51 @@ func (s *ServiceWriter) add(svc *v1.Service) {
 
 func (s *ServiceWriter) update(svc *v1.Service) {
 	logger.Info("Updating service", zap.String("name", svc.Name), zap.String("namespace", svc.ObjectMeta.Namespace))
-	_, err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Update(svc)
-	if err != nil {
-		// If the service doesn't exist for some reason, attempt to create it
-		if ResourceNotExist(err) {
-			s.create(svc)
-		} else {
-			errors.Error(context.Background(), err)
+	update := func() error {
+		_, err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Update(svc)
+		if err != nil {
+			// If the service doesn't exist for some reason, attempt to create it
+			if ResourceNotExist(err) {
+				s.create(svc)
+			} else {
+				return err
+			}
 		}
+		return nil
 	}
+	exponentialBackOff(context.Background(), update)
 }
 
 func (s *ServiceWriter) create(svc *v1.Service) {
-	_, err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Create(svc)
-	if err != nil {
-		errors.Error(context.Background(), err)
+	create := func() error {
+		logger.Info("Creating service", zap.String("name", svc.Name), zap.String("namespace", svc.ObjectMeta.Namespace))
+		_, err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Create(svc)
+		if err != nil {
+			// If the resource already exists, we don't want backoff behavior
+			if errors.IsAlreadyExists(err) {
+				return backoff.Permanent(err)
+			}
+			return err
+		}
+		return nil
 	}
+	exponentialBackOff(context.Background(), create)
 }
 
 func (s *ServiceWriter) delete(svc *v1.Service) {
-	logger.Info("Deleting service", zap.String("name", svc.Name), zap.String("namespace", svc.ObjectMeta.Namespace))
-	err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
-	if err != nil {
-		errors.Error(context.Background(), err)
+	delete := func() error {
+		logger.Info("Deleting service", zap.String("name", svc.Name), zap.String("namespace", svc.ObjectMeta.Namespace))
+		err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			// If the resource does not exist, we don't want backoff behavior
+			if ResourceNotExist(err) {
+				return backoff.Permanent(err)
+			}
+			return err
+		}
+		return nil
 	}
+	exponentialBackOff(context.Background(), delete)
 }
 
 func (s *ServiceWriter) Run() {

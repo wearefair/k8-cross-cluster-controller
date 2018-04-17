@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"os"
 	"time"
@@ -42,6 +43,8 @@ var (
 	localContext  string
 	remoteContext string
 	logger        = logging.Logger()
+
+	ErrLocalRemoteK8ConfMatch = errors.New("Local and remote K8 configuration cannot point to the same host.")
 )
 
 func main() {
@@ -57,6 +60,11 @@ func main() {
 	}
 	remoteConf, err := setupRemoteConfig(kubeconfig)
 	if err != nil {
+		logger.Fatal(err.Error())
+	}
+
+	logger.Info("Performing sanity checks on kubeconfig settings")
+	if err := validateK8Conf(localConf, remoteConf); err != nil {
 		logger.Fatal(err.Error())
 	}
 
@@ -203,4 +211,13 @@ func devModeEnabled() bool {
 		return true
 	}
 	return false
+}
+
+// Checks to make sure that the local config and remote config's hosts don't point to
+// the same place
+func validateK8Conf(localConf, remoteConf *rest.Config) error {
+	if localConf.Host == remoteConf.Host {
+		return ErrLocalRemoteK8ConfMatch
+	}
+	return nil
 }
