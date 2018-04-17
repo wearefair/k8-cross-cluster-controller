@@ -216,10 +216,6 @@ func devModeEnabled() bool {
 // Checks to make sure that the local config and remote config's hosts don't point to
 // the same place
 func validateK8Conf(localConf, remoteConf *rest.Config) error {
-	// Don't need to perform validation checks when dev mode enabled
-	if devModeEnabled() {
-		return nil
-	}
 	if localConf.Host == remoteConf.Host {
 		return ErrLocalRemoteK8ConfMatch
 	}
