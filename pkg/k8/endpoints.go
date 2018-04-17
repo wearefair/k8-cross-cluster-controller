@@ -8,7 +8,7 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 
-	ferrors "github.com/wearefair/service-kit-go/errors"
+	"github.com/cenkalti/backoff"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -83,37 +83,31 @@ func (e *EndpointsWriter) update(endpoints *v1.Endpoints) {
 }
 
 func (e *EndpointsWriter) create(endpoints *v1.Endpoints) {
-	ctx := context.Background()
 	create := func() error {
 		logger.Info("Creating endpoints", zap.String("name", endpoints.Name),
 			zap.String("namespace", endpoints.ObjectMeta.Namespace))
 		_, err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Create(endpoints)
 		if err != nil {
-			// If the resource already exists, we want to report the error, but we don't want
-			// any backoff behavior, since it's pointless
+			// If the resource already exists, we should not attempt backoff behavior
 			if errors.IsAlreadyExists(err) {
-				ferrors.Error(ctx, err)
-				return nil
+				return backoff.Permanent(err)
 			}
 			return err
 		}
 		return nil
 	}
-	exponentialBackOff(ctx, create)
+	exponentialBackOff(context.Background(), create)
 }
 
 func (e *EndpointsWriter) delete(endpoints *v1.Endpoints) {
-	ctx := context.Background()
 	delete := func() error {
 		logger.Info("Deleting endpoints", zap.String("name", endpoints.Name),
 			zap.String("namespace", endpoints.ObjectMeta.Namespace))
 		err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Delete(endpoints.Name, &metav1.DeleteOptions{})
 		if err != nil {
-			// If the resource doesn't exist, we want to report the error, but we don't want any
-			// backoff behavior, since it's pointless
+			// If resource does not exist, we should not attempt backoff behavior
 			if ResourceNotExist(err) {
-				ferrors.Error(ctx, err)
-				return nil
+				return backoff.Permanent(err)
 			}
 			return err
 		}
