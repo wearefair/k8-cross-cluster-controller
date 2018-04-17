@@ -1,2 +1,2 @@
 releases:
-  branches: [master, feature/backoff]
+  branches: [master]
