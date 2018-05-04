@@ -15,13 +15,18 @@ type Augmenter struct {
 }
 
 func (a *Augmenter) Service(req *k8.ServiceRequest) error {
+	req.LocalService = &v1.Service{}
 	switch req.Type {
-	case k8.RequestTypeAdd:
-		req.LocalService = &v1.Service{}
 	case k8.RequestTypeUpdate:
 		localService, err := a.Client.CoreV1().Services(req.RemoteService.ObjectMeta.Namespace).Get(req.RemoteService.Name, metav1.GetOptions{})
 		if err != nil {
-			return errors.Error(context.Background(), err)
+			// If the resource doesn't exist, transform the request into an add to create it
+			if k8.ResourceNotExist(err) {
+				req.Type = k8.RequestTypeAdd
+				return nil
+			} else {
+				return errors.Error(context.Background(), err)
+			}
 		}
 		req.LocalService = localService
 	// We can just copy the remote service, because a delete just requires the K8 resource name
@@ -32,13 +37,18 @@ func (a *Augmenter) Service(req *k8.ServiceRequest) error {
 }
 
 func (a *Augmenter) Endpoints(req *k8.EndpointsRequest) error {
+	req.LocalEndpoints = &v1.Endpoints{}
 	switch req.Type {
-	case k8.RequestTypeAdd:
-		req.LocalEndpoints = &v1.Endpoints{}
 	case k8.RequestTypeUpdate:
 		localEndpoints, err := a.Client.CoreV1().Endpoints(req.RemoteEndpoints.ObjectMeta.Namespace).Get(req.RemoteEndpoints.Name, metav1.GetOptions{})
 		if err != nil {
-			return errors.Error(context.Background(), err)
+			// If the resource doesn't exist, transform the request into an add to create it
+			if k8.ResourceNotExist(err) {
+				req.Type = k8.RequestTypeAdd
+				return nil
+			} else {
+				return errors.Error(context.Background(), err)
+			}
 		}
 		req.LocalEndpoints = localEndpoints
 	// We can just copy the remote endpoint, because a delete just requires the K8 resource name
