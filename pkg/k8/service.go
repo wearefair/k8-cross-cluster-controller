@@ -86,7 +86,10 @@ func (s *ServiceWriter) create(svc *v1.Service) {
 		if err != nil {
 			// If the resource already exists, we don't want backoff behavior
 			if errors.IsAlreadyExists(err) {
-				return backoff.Permanent(err)
+				logger.Info("Service already exists, skipping create",
+					zap.String("name", svc.Name),
+					zap.String("namespace", svc.ObjectMeta.Namespace))
+				return nil
 			}
 			return err
 		}

@@ -90,7 +90,10 @@ func (e *EndpointsWriter) create(endpoints *v1.Endpoints) {
 		if err != nil {
 			// If the resource already exists, we should not attempt backoff behavior
 			if errors.IsAlreadyExists(err) {
-				return backoff.Permanent(err)
+				logger.Info("Endpoints already exists, skipping create",
+					zap.String("name", endpoints.Name),
+					zap.String("namespace", endpoints.ObjectMeta.Namespace))
+				return nil
 			}
 			return err
 		}
