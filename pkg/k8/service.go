@@ -70,6 +70,9 @@ func (s *ServiceWriter) update(svc *v1.Service) {
 			// If the service doesn't exist for some reason, attempt to create it
 			if ResourceNotExist(err) {
 				s.create(svc)
+			} else if errors.IsConflict(err) {
+				// Report to Sentry, but don't attempt to retry
+				return backoff.Permanent(err)
 			} else {
 				return err
 			}

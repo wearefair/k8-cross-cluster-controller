@@ -73,6 +73,9 @@ func (e *EndpointsWriter) update(endpoints *v1.Endpoints) {
 			// If the endpoint doesn't exist, attempt to create it
 			if ResourceNotExist(err) {
 				e.create(endpoints)
+			} else if errors.IsConflict(err) {
+				// Report to Sentry, but don't attempt to retry
+				return backoff.Permanent(err)
 			} else {
 				return err
 			}
