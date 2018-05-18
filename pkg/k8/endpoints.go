@@ -73,9 +73,12 @@ func (e *EndpointsWriter) update(endpoints *v1.Endpoints) {
 			// If the endpoint doesn't exist, attempt to create it
 			if ResourceNotExist(err) {
 				e.create(endpoints)
-			} else {
-				return err
+				return nil
 			}
+			if PermanentError(err) {
+				return backoff.Permanent(err)
+			}
+			return err
 		}
 		return nil
 	}
@@ -109,7 +112,7 @@ func (e *EndpointsWriter) delete(endpoints *v1.Endpoints) {
 		err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Delete(endpoints.Name, &metav1.DeleteOptions{})
 		if err != nil {
 			// If resource does not exist, we should not attempt backoff behavior
-			if ResourceNotExist(err) {
+			if PermanentError(err) {
 				return backoff.Permanent(err)
 			}
 			return err

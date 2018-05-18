@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  name = "github.com/cenkalti/backoff"
+  packages = ["."]
+  revision = "2ea60e5f094469f9e65adb9cd103795b73ae743e"
+  version = "v2.0.0"
+
+[[projects]]
   name = "github.com/certifi/gocertifi"
   packages = ["."]
   revision = "deb3ae2ef2610fde3330947281941c562861188b"
@@ -412,6 +418,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d9c3fc612fe1218f3770bb909880e781967fcb46edd7bb9c858017cc099d0d89"
+  inputs-digest = "1c3d41d6dca08052d4d7308efe13a09a86b4b052b67dfe4835c926eb2379bcd3"
   solver-name = "gps-cdcl"
   solver-version = 1
