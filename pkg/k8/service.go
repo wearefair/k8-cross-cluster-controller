@@ -70,9 +70,12 @@ func (s *ServiceWriter) update(svc *v1.Service) {
 			// If the service doesn't exist for some reason, attempt to create it
 			if ResourceNotExist(err) {
 				s.create(svc)
-			} else {
-				return err
+				return nil
 			}
+			if PermanentError(err) {
+				return backoff.Permanent(err)
+			}
+			return err
 		}
 		return nil
 	}
@@ -103,8 +106,7 @@ func (s *ServiceWriter) delete(svc *v1.Service) {
 		logger.Info("Deleting service", zap.String("name", svc.Name), zap.String("namespace", svc.ObjectMeta.Namespace))
 		err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
 		if err != nil {
-			// If the resource does not exist, we don't want backoff behavior
-			if ResourceNotExist(err) {
+			if PermanentError(err) {
 				return backoff.Permanent(err)
 			}
 			return err

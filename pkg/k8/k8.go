@@ -63,6 +63,10 @@ func ResourceNotExist(err error) bool {
 	return errors.IsNotFound(err) || errors.IsGone(err)
 }
 
+func PermanentError(err error) bool {
+	return ResourceNotExist(err) || errors.IsConflict(err)
+}
+
 func exponentialBackOff(ctx context.Context, retryFunc func() error) {
 	// Get settings and then override the ones we don't want
 	settings := backoff.NewExponentialBackOff()
