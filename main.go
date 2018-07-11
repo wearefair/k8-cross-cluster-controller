@@ -63,6 +63,8 @@ func main() {
 		logger.Fatal(err.Error())
 	}
 
+	id := generateId()
+	logger = logger.With(zap.String("id", id))
 	logger.Info("Performing sanity checks on kubeconfig settings")
 	if err := validateK8Conf(localConf, remoteConf); err != nil {
 		logger.Fatal(err.Error())
@@ -124,16 +126,19 @@ func main() {
 		k8.WatchServices(remoteClient, remoteServiceReader, stopChan)
 		go cleaner.Run(stopChan)
 	}
-	leaderElection(localClient, run)
+	leaderElection(id, localClient, run)
 }
 
-func leaderElection(localClient kubernetes.Interface, runFunc func(stopChan <-chan struct{})) {
-	// Create a unique identifier for the controller based off of hostname and UUID
+func generateId() string {
 	id, err := os.Hostname()
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
-	id = id + "_" + uuid.UUID()
+	return id + "_" + uuid.UUID()
+}
+
+func leaderElection(id string, localClient kubernetes.Interface, runFunc func(stopChan <-chan struct{})) {
+	// Create a unique identifier for the controller based off of hostname and UUID
 	broadcaster := record.NewBroadcaster()
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{})
 	lock, err := resourcelock.New(
@@ -152,6 +157,9 @@ func leaderElection(localClient kubernetes.Interface, runFunc func(stopChan <-ch
 	logger.Info("Setting up leader election")
 	callbacks := leaderelection.LeaderCallbacks{
 		OnStartedLeading: runFunc,
+		OnStoppedLeading: func() {
+			logger.Fatal("No longer the leader.")
+		},
 	}
 	config := leaderelection.LeaderElectionConfig{
 		Callbacks:     callbacks,
@@ -207,10 +215,7 @@ func setupRemoteConfig(remoteConfPath string) (*rest.Config, error) {
 }
 
 func devModeEnabled() bool {
-	if devMode == "true" {
-		return true
-	}
-	return false
+	return devMode == "true"
 }
 
 // Checks to make sure that the local config and remote config's hosts don't point to
