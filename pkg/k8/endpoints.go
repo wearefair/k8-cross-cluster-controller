@@ -9,6 +9,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/cenkalti/backoff"
+	"github.com/wearefair/service-kit-go/metadata"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -82,7 +83,7 @@ func (e *EndpointsWriter) update(endpoints *v1.Endpoints) {
 		}
 		return nil
 	}
-	exponentialBackOff(context.Background(), update)
+	exponentialBackOff(newEndpointsContext(endpoints), update)
 }
 
 func (e *EndpointsWriter) create(endpoints *v1.Endpoints) {
@@ -102,7 +103,7 @@ func (e *EndpointsWriter) create(endpoints *v1.Endpoints) {
 		}
 		return nil
 	}
-	exponentialBackOff(context.Background(), create)
+	exponentialBackOff(newEndpointsContext(endpoints), create)
 }
 
 func (e *EndpointsWriter) delete(endpoints *v1.Endpoints) {
@@ -119,7 +120,7 @@ func (e *EndpointsWriter) delete(endpoints *v1.Endpoints) {
 		}
 		return nil
 	}
-	exponentialBackOff(context.Background(), delete)
+	exponentialBackOff(newEndpointsContext(endpoints), delete)
 }
 
 func (e *EndpointsWriter) Run() {
@@ -134,4 +135,11 @@ func (e *EndpointsWriter) Run() {
 			e.delete(request.LocalEndpoints)
 		}
 	}
+}
+
+func newEndpointsContext(endpoints *v1.Endpoints) context.Context {
+	return metadata.WithLocal(context.Background(), map[string]interface{}{
+		"name":      endpoints.Name,
+		"namespace": endpoints.ObjectMeta.Namespace,
+	})
 }
