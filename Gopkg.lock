@@ -23,7 +23,7 @@
   branch = "master"
   name = "github.com/getsentry/raven-go"
   packages = ["."]
-  revision = "7562301a6763c9ac631b0a2011b4aa0e064e45d4"
+  revision = "ed7bcb39ff10f39ab08e317ce16df282845852fa"
 
 [[projects]]
   name = "github.com/ghodss/yaml"
@@ -137,9 +137,10 @@
   packages = [
     "errors",
     "logging",
+    "metadata",
     "uuid"
   ]
-  revision = "35cd90091e1b6715438b0485da2f182ca4f99f1d"
+  revision = "a451081ff97620f3b48a69b430d3a30cf5a927d7"
 
 [[projects]]
   name = "go.uber.org/atomic"
@@ -163,8 +164,8 @@
     "internal/exit",
     "zapcore"
   ]
-  revision = "35aad584952c3e7020db7b839f6b102de6271f89"
-  version = "v1.7.1"
+  revision = "eeedf312bc6c57391d84767a4cd413f02a917974"
+  version = "v1.8.0"
 
 [[projects]]
   branch = "master"
@@ -418,6 +419,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1c3d41d6dca08052d4d7308efe13a09a86b4b052b67dfe4835c926eb2379bcd3"
+  inputs-digest = "89fa96ad1d4853d0ba8ef811af447125e4405275792407a382d5793d02d4128c"
   solver-name = "gps-cdcl"
   solver-version = 1

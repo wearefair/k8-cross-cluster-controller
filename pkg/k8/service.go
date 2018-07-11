@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cenkalti/backoff"
+	"github.com/wearefair/service-kit-go/metadata"
 	"go.uber.org/zap"
 
 	"k8s.io/api/core/v1"
@@ -79,7 +80,7 @@ func (s *ServiceWriter) update(svc *v1.Service) {
 		}
 		return nil
 	}
-	exponentialBackOff(context.Background(), update)
+	exponentialBackOff(newServiceContext(svc), update)
 }
 
 func (s *ServiceWriter) create(svc *v1.Service) {
@@ -98,7 +99,7 @@ func (s *ServiceWriter) create(svc *v1.Service) {
 		}
 		return nil
 	}
-	exponentialBackOff(context.Background(), create)
+	exponentialBackOff(newServiceContext(svc), create)
 }
 
 func (s *ServiceWriter) delete(svc *v1.Service) {
@@ -113,7 +114,7 @@ func (s *ServiceWriter) delete(svc *v1.Service) {
 		}
 		return nil
 	}
-	exponentialBackOff(context.Background(), delete)
+	exponentialBackOff(newServiceContext(svc), delete)
 }
 
 func (s *ServiceWriter) Run() {
@@ -128,4 +129,11 @@ func (s *ServiceWriter) Run() {
 			s.delete(request.LocalService)
 		}
 	}
+}
+
+func newServiceContext(service *v1.Service) context.Context {
+	return metadata.WithLocal(context.Background(), map[string]interface{}{
+		"name":      service.Name,
+		"namespace": service.ObjectMeta.Namespace,
+	})
 }

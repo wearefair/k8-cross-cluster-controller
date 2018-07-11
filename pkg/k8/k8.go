@@ -74,6 +74,6 @@ func exponentialBackOff(ctx context.Context, retryFunc func() error) {
 	settings.MaxElapsedTime = backOffMaxElapsedTime
 	err := backoff.Retry(retryFunc, settings)
 	if err != nil {
-		ferrors.Error(ctx, err)
+		_ = ferrors.Error(ctx, err)
 	}
 }
