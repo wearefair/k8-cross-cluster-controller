@@ -1,8 +1,7 @@
-FROM 889883130442.dkr.ecr.us-west-2.amazonaws.com/fair-images:golang-1.10.0-2 as builder
-
-ARG GITHUB_OAUTH_TOKEN
+FROM golang:1.10.0 as builder
 
 WORKDIR /go/src/github.com/wearefair/k8-cross-cluster-controller
+RUN go get -u github.com/golang/dep/cmd/dep
 RUN mkdir /dist
 COPY . .
 RUN dep ensure -v

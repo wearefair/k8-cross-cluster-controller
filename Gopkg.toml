@@ -11,10 +11,6 @@
   name = "k8s.io/client-go"
   branch = "release-7.0"
 
-[[constraint]]
-  name = "github.com/wearefair/service-kit-go"
-  branch = "master"
-
 [prune]
   go-tests = true
   unused-packages = true

@@ -1,9 +1,11 @@
 package main
 
 import (
-	"context"
+	"crypto/rand"
 	"errors"
 	"flag"
+	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -11,10 +13,9 @@ import (
 
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/cleaner"
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/controller"
+	ferrors "github.com/wearefair/k8-cross-cluster-controller/pkg/errors"
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/k8"
-	ferrors "github.com/wearefair/service-kit-go/errors"
-	"github.com/wearefair/service-kit-go/logging"
-	"github.com/wearefair/service-kit-go/uuid"
+	"github.com/wearefair/k8-cross-cluster-controller/pkg/logging"
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -42,7 +43,7 @@ var (
 	// These are only set and used when the controller is running in dev mode
 	localContext  string
 	remoteContext string
-	logger        = logging.Logger()
+	logger        = logging.Logger
 
 	ErrLocalRemoteK8ConfMatch = errors.New("Local and remote K8 configuration cannot point to the same host.")
 )
@@ -134,7 +135,7 @@ func generateId() string {
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
-	return id + "_" + uuid.UUID()
+	return id + "_" + UUID()
 }
 
 func leaderElection(id string, localClient kubernetes.Interface, runFunc func(stopChan <-chan struct{})) {
@@ -188,7 +189,7 @@ func setupLocalConfig() (*rest.Config, error) {
 		conf, err = rest.InClusterConfig()
 	}
 	if err != nil {
-		return nil, ferrors.Error(context.Background(), err)
+		return nil, ferrors.Error(err)
 	}
 	return conf, nil
 }
@@ -209,7 +210,7 @@ func setupRemoteConfig(remoteConfPath string) (*rest.Config, error) {
 	remoteKubeConf := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
 	remoteConf, err := remoteKubeConf.ClientConfig()
 	if err != nil {
-		return nil, ferrors.Error(context.Background(), err)
+		return nil, ferrors.Error(err)
 	}
 	return remoteConf, nil
 }
@@ -225,4 +226,15 @@ func validateK8Conf(localConf, remoteConf *rest.Config) error {
 		return ErrLocalRemoteK8ConfMatch
 	}
 	return nil
+}
+
+// Generates a random UUID according to RFC 4122, but without the dashes
+func UUID() string {
+	const DefaultLength = 16
+	uuid := make([]byte, DefaultLength)
+	n, err := io.ReadFull(rand.Reader, uuid)
+	if n != len(uuid) || err != nil {
+		panic(err)
+	}
+	return fmt.Sprintf("%x", uuid)
 }

@@ -1,4 +1,11 @@
-# Cross Cluster Controller
+# Cross Cluster Controller (Deprecated)
+
+A custom Kubernetes controller for multi-cluster service discovery and routing.
+
+[Google Slides](https://docs.google.com/presentation/d/10XcKahvyRkGChDhB0DNTrbZwcdt2RHnkY_wg7McrGSI/edit?usp=sharing) on the history and architecture of the project.
+
+## Notice: reference only, deprecated.
+This project was created prior to the [Istio Multicluster](https://istio.io/docs/setup/kubernetes/multicluster-install/) feature. It has been deprecated in favor of using Istio, but is open-sourced as reference of a customer K8s controller.
 
 ## Background
 Kubernetes clusters using the [Amazon VPC CNI plugin](https://github.com/aws/amazon-vpc-cni-k8s) allow pods to be assigned and reachable on an IP address within the AWS VPC CIDR range. This means that two K8 clusters spun up in different VPCs that are peered to each other with security group policies to allow for ingress between the two clusters are able to communicate with pods from the other cluster via their IPs (so long as their VPC CIDRs don't clobber). 
@@ -24,6 +31,11 @@ Example steps:
 - Cross cluster controller B will delete Service Foo in Cluster B.
 
 The cross cluster controller also includes a cleaning job that runs every 5 minutes to clean up any orphaned services/endpoints on the local cluster side. This means cleaning up any services or endpoints that have been deleted from the other cluster that might not have been picked up by the controller.
+
+## Error reporting and logging
+It uses [Sentry](https://github.com/getsentry/raven-go) and [Zap](https://github.com/uber-go/zap) for errors and logging.
+
+You can configure Sentry with the environment variable `SENTRY_DSN`, and trigger JSON logging with Zap by setting `ENV=production`.
 
 ## Running Locally
 The controller can run in development mode, which will run using the default kubeconfig file ($HOME/.kube/config). This flag can be set by setting the DEV_MODE var to true or by passing in the flag. You can also specify the local and remote cluster contexts via flags (they default to prototype-general and prototype-secure).
