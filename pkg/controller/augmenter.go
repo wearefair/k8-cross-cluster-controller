@@ -1,10 +1,8 @@
 package controller
 
 import (
-	"context"
-
+	"github.com/wearefair/k8-cross-cluster-controller/pkg/errors"
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/k8"
-	"github.com/wearefair/service-kit-go/errors"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -25,7 +23,7 @@ func (a *Augmenter) Service(req *k8.ServiceRequest) error {
 				req.Type = k8.RequestTypeAdd
 				return nil
 			} else {
-				return errors.Error(context.Background(), err)
+				return errors.Error(err)
 			}
 		}
 		req.LocalService = localService
@@ -47,7 +45,7 @@ func (a *Augmenter) Endpoints(req *k8.EndpointsRequest) error {
 				req.Type = k8.RequestTypeAdd
 				return nil
 			} else {
-				return errors.Error(context.Background(), err)
+				return errors.Error(err)
 			}
 		}
 		req.LocalEndpoints = localEndpoints

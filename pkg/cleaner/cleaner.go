@@ -1,12 +1,11 @@
 package cleaner
 
 import (
-	"context"
 	"time"
 
+	ferrors "github.com/wearefair/k8-cross-cluster-controller/pkg/errors"
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/k8"
-	ferrors "github.com/wearefair/service-kit-go/errors"
-	"github.com/wearefair/service-kit-go/logging"
+	"github.com/wearefair/k8-cross-cluster-controller/pkg/logging"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,7 +17,7 @@ const (
 )
 
 var (
-	logger = logging.Logger()
+	logger = logging.Logger
 )
 
 // Cleaner looks for orphaned services/endpoints on the local side and sends requests to delete them.
@@ -105,7 +104,7 @@ func (c *Cleaner) listLocalEndpoints() []v1.Endpoints {
 	list, err := c.LocalClient.CoreV1().Endpoints(metav1.NamespaceAll).List(k8.LocalFilter)
 	// If there's an error, we want to report it, but we don't necessarily need to propagate it
 	if err != nil {
-		ferrors.Error(context.Background(), err)
+		ferrors.Error(err)
 		return []v1.Endpoints{}
 	}
 	return list.Items
@@ -117,7 +116,7 @@ func (c *Cleaner) listLocalServices() []v1.Service {
 	list, err := c.LocalClient.CoreV1().Services(metav1.NamespaceAll).List(k8.LocalFilter)
 	// If there's an error, we want to report it, but we don't necessarily need to propagate it
 	if err != nil {
-		ferrors.Error(context.Background(), err)
+		ferrors.Error(err)
 		return []v1.Service{}
 	}
 	return list.Items
@@ -131,7 +130,7 @@ func (c *Cleaner) listRemoteServices() []v1.Service {
 	list, err := c.RemoteClient.CoreV1().Services(metav1.NamespaceAll).List(*opts)
 	// If there's an error, we want to report it, but we don't necessarily need to propagate it
 	if err != nil {
-		ferrors.Error(context.Background(), err)
+		ferrors.Error(err)
 		return []v1.Service{}
 	}
 	return list.Items
@@ -145,7 +144,7 @@ func (c *Cleaner) listRemoteEndpoints() []v1.Endpoints {
 	list, err := c.RemoteClient.CoreV1().Endpoints(metav1.NamespaceAll).List(*opts)
 	// If there's an error, we want to report it, but we don't necessarily need to propagate it
 	if err != nil {
-		ferrors.Error(context.Background(), err)
+		ferrors.Error(err)
 		return []v1.Endpoints{}
 	}
 	return list.Items

@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
-	ferrors "github.com/wearefair/service-kit-go/errors"
-	"github.com/wearefair/service-kit-go/logging"
+	ferrors "github.com/wearefair/k8-cross-cluster-controller/pkg/errors"
+	"github.com/wearefair/k8-cross-cluster-controller/pkg/logging"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +28,7 @@ const (
 )
 
 var (
-	logger = logging.Logger()
+	logger = logging.Logger
 
 	CrossClusterLocalLabel  = fmt.Sprintf("%s=%s", CrossClusterServiceLabelKey, CrossClusterServiceLocalLabelValue)
 	CrossClusterRemoteLabel = fmt.Sprintf("%s=%s", CrossClusterServiceLabelKey, CrossClusterServiceRemoteLabelValue)
@@ -74,6 +74,6 @@ func exponentialBackOff(ctx context.Context, retryFunc func() error) {
 	settings.MaxElapsedTime = backOffMaxElapsedTime
 	err := backoff.Retry(retryFunc, settings)
 	if err != nil {
-		ferrors.Error(ctx, err)
+		ferrors.Error(err)
 	}
 }
