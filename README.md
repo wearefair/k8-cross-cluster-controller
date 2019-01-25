@@ -1,4 +1,4 @@
-# Cross Cluster Controller (Deprecated)
+# Cross Cluster Controller (Deprecated) [![CircleCI](https://circleci.com/gh/wearefair/k8-cross-cluster-controller.svg?style=svg)](https://circleci.com/gh/wearefair/k8-cross-cluster-controller)
 
 A custom Kubernetes controller for multi-cluster service discovery and routing.
 
