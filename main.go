@@ -41,9 +41,10 @@ var (
 	devMode    string
 	kubeconfig string
 	// These are only set and used when the controller is running in dev mode
-	localContext  string
-	remoteContext string
-	logger        = logging.Logger
+	localContext      string
+	remoteContext     string
+	logger            = logging.Logger
+	lockfileNamespace string
 
 	ErrLocalRemoteK8ConfMatch = errors.New("Local and remote K8 configuration cannot point to the same host.")
 )
@@ -53,6 +54,7 @@ func main() {
 	flag.StringVar(&devMode, "devmode", os.Getenv(EnvDevMode), "Dev mode flag")
 	flag.StringVar(&localContext, "local-context", "prototype-general", "DEV MODE: Context override for the local cluster. Defaults to prototype-general")
 	flag.StringVar(&remoteContext, "remote-context", "prototype-secure", "DEV MODE: Context override for the remote cluster. Defaults to prototype-secure")
+	flag.StringVar(&lockfileNamespace, "namespace", fairSystemK8Namespace, "The namespace to use for the leader eelection configmap")
 	flag.Parse()
 
 	localConf, err := setupLocalConfig()
@@ -144,7 +146,7 @@ func leaderElection(id string, localClient kubernetes.Interface, runFunc func(st
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{})
 	lock, err := resourcelock.New(
 		resourcelock.EndpointsResourceLock,
-		fairSystemK8Namespace,
+		lockfileNamespace,
 		controllerName,
 		localClient.CoreV1(),
 		resourcelock.ResourceLockConfig{
