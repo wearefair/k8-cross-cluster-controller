@@ -5,10 +5,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/cenkalti/backoff"
+	backoff "github.com/cenkalti/backoff/v4"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -58,21 +58,21 @@ func NewEndpointsWriter(clientset kubernetes.Interface, events chan *EndpointsRe
 	}
 }
 
-func (e *EndpointsWriter) add(endpoints *v1.Endpoints) {
+func (e *EndpointsWriter) add(ctx context.Context, endpoints *v1.Endpoints) {
 	logger.Info("Creating endpoints", zap.String("name", endpoints.Name),
 		zap.String("namespace", endpoints.ObjectMeta.Namespace))
-	e.create(endpoints)
+	e.create(ctx, endpoints)
 }
 
-func (e *EndpointsWriter) update(endpoints *v1.Endpoints) {
+func (e *EndpointsWriter) update(ctx context.Context, endpoints *v1.Endpoints) {
 	update := func() error {
 		logger.Info("Updating endpoints", zap.String("name", endpoints.Name),
 			zap.String("namespace", endpoints.ObjectMeta.Namespace))
-		_, err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Update(endpoints)
+		_, err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Update(ctx, endpoints, metav1.UpdateOptions{})
 		if err != nil {
 			// If the endpoint doesn't exist, attempt to create it
 			if ResourceNotExist(err) {
-				e.create(endpoints)
+				e.create(ctx, endpoints)
 				return nil
 			}
 			if PermanentError(err) {
@@ -85,11 +85,11 @@ func (e *EndpointsWriter) update(endpoints *v1.Endpoints) {
 	exponentialBackOff(context.Background(), update)
 }
 
-func (e *EndpointsWriter) create(endpoints *v1.Endpoints) {
+func (e *EndpointsWriter) create(ctx context.Context, endpoints *v1.Endpoints) {
 	create := func() error {
 		logger.Info("Creating endpoints", zap.String("name", endpoints.Name),
 			zap.String("namespace", endpoints.ObjectMeta.Namespace))
-		_, err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Create(endpoints)
+		_, err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Create(ctx, endpoints, metav1.CreateOptions{})
 		if err != nil {
 			// If the resource already exists, we should not attempt backoff behavior
 			if errors.IsAlreadyExists(err) {
@@ -105,11 +105,11 @@ func (e *EndpointsWriter) create(endpoints *v1.Endpoints) {
 	exponentialBackOff(context.Background(), create)
 }
 
-func (e *EndpointsWriter) delete(endpoints *v1.Endpoints) {
+func (e *EndpointsWriter) delete(ctx context.Context, endpoints *v1.Endpoints) {
 	delete := func() error {
 		logger.Info("Deleting endpoints", zap.String("name", endpoints.Name),
 			zap.String("namespace", endpoints.ObjectMeta.Namespace))
-		err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Delete(endpoints.Name, &metav1.DeleteOptions{})
+		err := e.Client.CoreV1().Endpoints(endpoints.ObjectMeta.Namespace).Delete(ctx, endpoints.Name, metav1.DeleteOptions{})
 		if err != nil {
 			// If resource does not exist, we should not attempt backoff behavior
 			if PermanentError(err) {
@@ -127,11 +127,11 @@ func (e *EndpointsWriter) Run() {
 		request := <-e.Events
 		switch request.Type {
 		case RequestTypeAdd:
-			e.add(request.LocalEndpoints)
+			e.add(context.Background(), request.LocalEndpoints)
 		case RequestTypeUpdate:
-			e.update(request.LocalEndpoints)
+			e.update(context.Background(), request.LocalEndpoints)
 		case RequestTypeDelete:
-			e.delete(request.LocalEndpoints)
+			e.delete(context.Background(), request.LocalEndpoints)
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"flag"
@@ -16,7 +17,7 @@ import (
 	ferrors "github.com/wearefair/k8-cross-cluster-controller/pkg/errors"
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/k8"
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/logging"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -123,11 +124,11 @@ func main() {
 	// Set up leader election callback funcs
 	// Reference for leader election setup:
 	// https://github.com/kubernetes/kubernetes/blob/dce1b881284a103909f5cfa969ff56e5e0565362/cmd/cloud-controller-manager/app/controllermanager.go#L157-L190
-	run := func(stopChan <-chan struct{}) {
+	run := func(ctx context.Context) {
 		logger.Info("Setting up watchers")
-		k8.WatchEndpoints(remoteClient, remoteEndpointsReader, stopChan)
-		k8.WatchServices(remoteClient, remoteServiceReader, stopChan)
-		go cleaner.Run(stopChan)
+		k8.WatchEndpoints(ctx, remoteClient, remoteEndpointsReader)
+		k8.WatchServices(ctx, remoteClient, remoteServiceReader)
+		go cleaner.Run(ctx.Done())
 	}
 	leaderElection(id, localClient, run)
 }
@@ -140,7 +141,8 @@ func generateId() string {
 	return id + "_" + UUID()
 }
 
-func leaderElection(id string, localClient kubernetes.Interface, runFunc func(stopChan <-chan struct{})) {
+func leaderElection(id string, localClient kubernetes.Interface, runFunc func(ctx context.Context)) {
+	ctx := context.Background()
 	// Create a unique identifier for the controller based off of hostname and UUID
 	broadcaster := record.NewBroadcaster()
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{})
@@ -149,6 +151,7 @@ func leaderElection(id string, localClient kubernetes.Interface, runFunc func(st
 		lockfileNamespace,
 		controllerName,
 		localClient.CoreV1(),
+		nil,
 		resourcelock.ResourceLockConfig{
 			Identity:      id,
 			EventRecorder: recorder,
@@ -171,7 +174,7 @@ func leaderElection(id string, localClient kubernetes.Interface, runFunc func(st
 		RenewDeadline: leaderElectionRenewDeadline,
 		RetryPeriod:   leaderElectionRetryPeriod,
 	}
-	leaderelection.RunOrDie(config)
+	leaderelection.RunOrDie(ctx, config)
 }
 
 // If the controller is configured to run in development mode, it will

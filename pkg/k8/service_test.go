@@ -1,10 +1,11 @@
 package k8
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,20 +72,21 @@ func TestServicesWriterUpdate(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
+		ctx := context.TODO()
 		writer := &ServiceWriter{
 			Events: make(chan *ServiceRequest, 4),
 			Client: fakeClientSet,
 		}
 		if testCase.ServiceToCreate != nil {
-			_, err := fakeClientSet.CoreV1().Services(testCase.ServiceToCreate.ObjectMeta.Namespace).Create(testCase.ServiceToCreate)
+			_, err := fakeClientSet.CoreV1().Services(testCase.ServiceToCreate.ObjectMeta.Namespace).Create(ctx, testCase.ServiceToCreate, metav1.CreateOptions{})
 			if err != nil {
 				t.Fatalf("Something went wrong creating fake service against fake clientset %v", err)
 			}
 		}
-		writer.update(testCase.UpdateService)
+		writer.update(ctx, testCase.UpdateService)
 		service, err := fakeClientSet.CoreV1().
 			Services(testCase.ExpectedService.ObjectMeta.Namespace).
-			Get(testCase.ExpectedService.ObjectMeta.Name, metav1.GetOptions{})
+			Get(ctx, testCase.ExpectedService.ObjectMeta.Name, metav1.GetOptions{})
 		if err != nil {
 			t.Errorf("Could not get service %v", err)
 		}

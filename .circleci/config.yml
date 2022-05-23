@@ -1,3 +1,4 @@
+version: 2
 workflows:
  version: 2
  test:
@@ -8,22 +9,21 @@ jobs:
   build:
     working_directory: /go/src/github.com/wearefair/k8-cross-cluster-controller
     docker:
-      - image: 889883130442.dkr.ecr.us-west-2.amazonaws.com/fair-images:golang-1.10
+      - image: 889883130442.dkr.ecr.us-west-2.amazonaws.com/fair-images:golang-1.15-3
     steps:
       - checkout
       - restore_cache:
           keys:
-            - vendor-dir-{{ checksum "Gopkg.lock" }}
-      - run: go get -u github.com/golang/dep/cmd/dep
+            - go-mod-v4-{{ checksum "go.sum" }}
       - run:
-          name: Install outdated deps
-          command: dep ensure -v
+          name: Install dependencies
+          command: go mod download
       - run:
           name: Run unit tests
           environment:
             ENV: test
           command: |
-            go test -v ./...
+            go test -race -v ./...
       - run:
           name: Verify the binary builds
           command: go build -v
