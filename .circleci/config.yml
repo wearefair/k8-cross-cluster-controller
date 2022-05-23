@@ -1,5 +1,9 @@
-version: 2
-
+workflows:
+ version: 2
+ test:
+   jobs:
+     - build:
+         context: "org-global"
 jobs:
   build:
     working_directory: /go/src/github.com/wearefair/k8-cross-cluster-controller
