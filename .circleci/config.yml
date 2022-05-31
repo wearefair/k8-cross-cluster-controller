@@ -1,10 +1,14 @@
-version: 2
-
+workflows:
+ version: 2
+ test:
+   jobs:
+     - build:
+         context: "org-global"
 jobs:
   build:
     working_directory: /go/src/github.com/wearefair/k8-cross-cluster-controller
     docker:
-      - image: golang:1.10.0
+      - image: 889883130442.dkr.ecr.us-west-2.amazonaws.com/fair-images:golang-1.10
     steps:
       - checkout
       - restore_cache:

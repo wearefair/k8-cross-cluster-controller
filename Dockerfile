@@ -1,5 +1,4 @@
-FROM golang:1.10.0 as builder
-
+FROM golang:1.15.15 as builder
 WORKDIR /go/src/github.com/wearefair/k8-cross-cluster-controller
 RUN go get -u github.com/golang/dep/cmd/dep
 RUN mkdir /dist

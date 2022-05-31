@@ -1,0 +1,6 @@
+releases:
+  branches: [master]
+  environments: [general]
+  targets:
+    - k8/deployment.yaml
+    - k8/serviceacount.yaml
