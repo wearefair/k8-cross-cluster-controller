@@ -1,9 +1,11 @@
 package controller
 
 import (
+	"context"
+
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/errors"
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/k8"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -16,7 +18,8 @@ func (a *Augmenter) Service(req *k8.ServiceRequest) error {
 	req.LocalService = &v1.Service{}
 	switch req.Type {
 	case k8.RequestTypeUpdate:
-		localService, err := a.Client.CoreV1().Services(req.RemoteService.ObjectMeta.Namespace).Get(req.RemoteService.Name, metav1.GetOptions{})
+		ctx := context.Background()
+		localService, err := a.Client.CoreV1().Services(req.RemoteService.ObjectMeta.Namespace).Get(ctx, req.RemoteService.Name, metav1.GetOptions{})
 		if err != nil {
 			// If the resource doesn't exist, transform the request into an add to create it
 			if k8.ResourceNotExist(err) {
@@ -38,7 +41,8 @@ func (a *Augmenter) Endpoints(req *k8.EndpointsRequest) error {
 	req.LocalEndpoints = &v1.Endpoints{}
 	switch req.Type {
 	case k8.RequestTypeUpdate:
-		localEndpoints, err := a.Client.CoreV1().Endpoints(req.RemoteEndpoints.ObjectMeta.Namespace).Get(req.RemoteEndpoints.Name, metav1.GetOptions{})
+		ctx := context.Background()
+		localEndpoints, err := a.Client.CoreV1().Endpoints(req.RemoteEndpoints.ObjectMeta.Namespace).Get(ctx, req.RemoteEndpoints.Name, metav1.GetOptions{})
 		if err != nil {
 			// If the resource doesn't exist, transform the request into an add to create it
 			if k8.ResourceNotExist(err) {

@@ -1,9 +1,10 @@
 package k8
 
 import (
+	"context"
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -22,7 +23,7 @@ type Watcher interface {
 }
 
 // WatchEndpoints watches for endpoint update and delete events
-func WatchEndpoints(clientset kubernetes.Interface, w Watcher, stopChan <-chan struct{}) {
+func WatchEndpoints(ctx context.Context, clientset kubernetes.Interface, w Watcher) {
 	restClient := clientset.CoreV1().RESTClient()
 	watchlist := cache.NewFilteredListWatchFromClient(restClient, K8Endpoints, metav1.NamespaceAll, RemoteFilter)
 	_, informer := cache.NewInformer(watchlist, &v1.Endpoints{}, defaultResyncPeriod,
@@ -32,11 +33,11 @@ func WatchEndpoints(clientset kubernetes.Interface, w Watcher, stopChan <-chan s
 			DeleteFunc: w.Delete,
 		},
 	)
-	go informer.Run(stopChan)
+	go informer.Run(ctx.Done())
 }
 
 // WatchServices watches for service add, update, and delete events
-func WatchServices(clientset kubernetes.Interface, w Watcher, stopChan <-chan struct{}) {
+func WatchServices(ctx context.Context, clientset kubernetes.Interface, w Watcher) {
 	restClient := clientset.CoreV1().RESTClient()
 	watchlist := cache.NewFilteredListWatchFromClient(restClient, K8Services, metav1.NamespaceAll, RemoteFilter)
 	_, informer := cache.NewInformer(watchlist, &v1.Service{}, defaultResyncPeriod,
@@ -46,5 +47,5 @@ func WatchServices(clientset kubernetes.Interface, w Watcher, stopChan <-chan st
 			DeleteFunc: w.Delete,
 		},
 	)
-	go informer.Run(stopChan)
+	go informer.Run(ctx.Done())
 }

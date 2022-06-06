@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	backoff "github.com/cenkalti/backoff/v4"
 	ferrors "github.com/wearefair/k8-cross-cluster-controller/pkg/errors"
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/logging"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

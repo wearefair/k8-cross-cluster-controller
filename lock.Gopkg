@@ -170,6 +170,20 @@
   version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
+  digest = "1:070c0d05db7da94feb15c11a5ed93bf49095e30dd6bd569f275e67577d4969dc"
+  name = "github.com/wearefair/k8-cross-cluster-controller"
+  packages = [
+    "pkg/cleaner",
+    "pkg/controller",
+    "pkg/errors",
+    "pkg/k8",
+    "pkg/logging",
+  ]
+  pruneopts = "UT"
+  revision = "03a7b79406d4249e6c2816a14a4736dfa5d4218b"
+
+[[projects]]
   digest = "1:784f3cd923eb52256c8a797df096989afb8ea2315ae5e6f93ce021f4e5909ae3"
   name = "go.uber.org/atomic"
   packages = ["."]
@@ -477,8 +491,12 @@
   input-imports = [
     "github.com/cenkalti/backoff",
     "github.com/getsentry/raven-go",
+    "github.com/wearefair/k8-cross-cluster-controller/pkg/cleaner",
+    "github.com/wearefair/k8-cross-cluster-controller/pkg/controller",
+    "github.com/wearefair/k8-cross-cluster-controller/pkg/errors",
+    "github.com/wearefair/k8-cross-cluster-controller/pkg/k8",
+    "github.com/wearefair/k8-cross-cluster-controller/pkg/logging",
     "go.uber.org/zap",
-    "golang.org/x/net/context",
     "k8s.io/api/core/v1",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",

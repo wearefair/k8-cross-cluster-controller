@@ -3,10 +3,10 @@ package k8
 import (
 	"context"
 
-	"github.com/cenkalti/backoff"
+	backoff "github.com/cenkalti/backoff/v4"
 	"go.uber.org/zap"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -57,19 +57,19 @@ func NewServiceWriter(clientset kubernetes.Interface, events chan *ServiceReques
 	}
 }
 
-func (s *ServiceWriter) add(svc *v1.Service) {
+func (s *ServiceWriter) add(ctx context.Context, svc *v1.Service) {
 	logger.Info("Creating service", zap.String("name", svc.Name), zap.String("namespace", svc.ObjectMeta.Namespace))
-	s.create(svc)
+	s.create(ctx, svc)
 }
 
-func (s *ServiceWriter) update(svc *v1.Service) {
+func (s *ServiceWriter) update(ctx context.Context, svc *v1.Service) {
 	logger.Info("Updating service", zap.String("name", svc.Name), zap.String("namespace", svc.ObjectMeta.Namespace))
 	update := func() error {
-		_, err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Update(svc)
+		_, err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Update(ctx, svc, metav1.UpdateOptions{})
 		if err != nil {
 			// If the service doesn't exist for some reason, attempt to create it
 			if ResourceNotExist(err) {
-				s.create(svc)
+				s.create(ctx, svc)
 				return nil
 			}
 			if PermanentError(err) {
@@ -82,10 +82,10 @@ func (s *ServiceWriter) update(svc *v1.Service) {
 	exponentialBackOff(context.Background(), update)
 }
 
-func (s *ServiceWriter) create(svc *v1.Service) {
+func (s *ServiceWriter) create(ctx context.Context, svc *v1.Service) {
 	create := func() error {
 		logger.Info("Creating service", zap.String("name", svc.Name), zap.String("namespace", svc.ObjectMeta.Namespace))
-		_, err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Create(svc)
+		_, err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Create(ctx, svc, metav1.CreateOptions{})
 		if err != nil {
 			// If the resource already exists, we don't want backoff behavior
 			if errors.IsAlreadyExists(err) {
@@ -101,10 +101,10 @@ func (s *ServiceWriter) create(svc *v1.Service) {
 	exponentialBackOff(context.Background(), create)
 }
 
-func (s *ServiceWriter) delete(svc *v1.Service) {
+func (s *ServiceWriter) delete(ctx context.Context, svc *v1.Service) {
 	delete := func() error {
 		logger.Info("Deleting service", zap.String("name", svc.Name), zap.String("namespace", svc.ObjectMeta.Namespace))
-		err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Delete(svc.Name, &metav1.DeleteOptions{})
+		err := s.Client.CoreV1().Services(svc.ObjectMeta.Namespace).Delete(ctx, svc.Name, metav1.DeleteOptions{})
 		if err != nil {
 			if PermanentError(err) {
 				return backoff.Permanent(err)
@@ -121,11 +121,11 @@ func (s *ServiceWriter) Run() {
 		request := <-s.Events
 		switch request.Type {
 		case RequestTypeAdd:
-			s.add(request.LocalService)
+			s.add(context.Background(), request.LocalService)
 		case RequestTypeUpdate:
-			s.update(request.LocalService)
+			s.update(context.Background(), request.LocalService)
 		case RequestTypeDelete:
-			s.delete(request.LocalService)
+			s.delete(context.Background(), request.LocalService)
 		}
 	}
 }

@@ -1,13 +1,14 @@
 package cleaner
 
 import (
+	"context"
 	"time"
 
 	ferrors "github.com/wearefair/k8-cross-cluster-controller/pkg/errors"
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/k8"
 	"github.com/wearefair/k8-cross-cluster-controller/pkg/logging"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -49,9 +50,10 @@ func (c *Cleaner) Run(stopChan <-chan struct{}) {
 			logger.Info("Received stopped signal. Stopping clean")
 			return
 		case <-ticker.C:
+			ctx := context.Background()
 			// If there is a service or endpoint that's local that no longer exists on remote side, send a deletion event
-			c.cleanOrphanedServices(c.listLocalServices(), c.listRemoteServices())
-			c.cleanOrphanedEndpoints(c.listLocalEndpoints(), c.listRemoteEndpoints())
+			c.cleanOrphanedServices(c.listLocalServices(ctx), c.listRemoteServices(ctx))
+			c.cleanOrphanedEndpoints(c.listLocalEndpoints(ctx), c.listRemoteEndpoints(ctx))
 		}
 	}
 }
@@ -99,9 +101,9 @@ func (c *Cleaner) checkEndpointsExists(localEndpoint v1.Endpoints, remoteEndpoin
 }
 
 // Lists all endpoints that are local with the cross cluster label
-func (c *Cleaner) listLocalEndpoints() []v1.Endpoints {
+func (c *Cleaner) listLocalEndpoints(ctx context.Context) []v1.Endpoints {
 	logger.Info("Listing local endpoints for clean")
-	list, err := c.LocalClient.CoreV1().Endpoints(metav1.NamespaceAll).List(k8.LocalFilter)
+	list, err := c.LocalClient.CoreV1().Endpoints(metav1.NamespaceAll).List(ctx, k8.LocalFilter)
 	// If there's an error, we want to report it, but we don't necessarily need to propagate it
 	if err != nil {
 		ferrors.Error(err)
@@ -111,9 +113,9 @@ func (c *Cleaner) listLocalEndpoints() []v1.Endpoints {
 }
 
 // List all services that are local with the cross cluster label
-func (c *Cleaner) listLocalServices() []v1.Service {
+func (c *Cleaner) listLocalServices(ctx context.Context) []v1.Service {
 	logger.Info("Listing local services for clean")
-	list, err := c.LocalClient.CoreV1().Services(metav1.NamespaceAll).List(k8.LocalFilter)
+	list, err := c.LocalClient.CoreV1().Services(metav1.NamespaceAll).List(ctx, k8.LocalFilter)
 	// If there's an error, we want to report it, but we don't necessarily need to propagate it
 	if err != nil {
 		ferrors.Error(err)
@@ -123,11 +125,11 @@ func (c *Cleaner) listLocalServices() []v1.Service {
 }
 
 // Lists all services that are remote with the cross cluster label
-func (c *Cleaner) listRemoteServices() []v1.Service {
+func (c *Cleaner) listRemoteServices(ctx context.Context) []v1.Service {
 	opts := &metav1.ListOptions{}
 	k8.RemoteFilter(opts)
 	logger.Info("Listing remote services for clean")
-	list, err := c.RemoteClient.CoreV1().Services(metav1.NamespaceAll).List(*opts)
+	list, err := c.RemoteClient.CoreV1().Services(metav1.NamespaceAll).List(ctx, *opts)
 	// If there's an error, we want to report it, but we don't necessarily need to propagate it
 	if err != nil {
 		ferrors.Error(err)
@@ -137,11 +139,11 @@ func (c *Cleaner) listRemoteServices() []v1.Service {
 }
 
 // Lists all endpoints that are remote with the cross cluster label
-func (c *Cleaner) listRemoteEndpoints() []v1.Endpoints {
+func (c *Cleaner) listRemoteEndpoints(ctx context.Context) []v1.Endpoints {
 	opts := &metav1.ListOptions{}
 	k8.RemoteFilter(opts)
 	logger.Info("Listing remote services for clean")
-	list, err := c.RemoteClient.CoreV1().Endpoints(metav1.NamespaceAll).List(*opts)
+	list, err := c.RemoteClient.CoreV1().Endpoints(metav1.NamespaceAll).List(ctx, *opts)
 	// If there's an error, we want to report it, but we don't necessarily need to propagate it
 	if err != nil {
 		ferrors.Error(err)
