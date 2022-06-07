@@ -1,5 +1,3 @@
 releases:
   environments: general
   branches: [master, feature/code-build]
-builds:
-  - dockerfile: Dockerfile
