@@ -1,2 +1,3 @@
 releases:
-  branches: master
+  environments: general
+  branches: [master, feature/code-build]
